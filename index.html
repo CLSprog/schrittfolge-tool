@@ -1,20 +1,9 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool v35-11 (28.06.) – Zusammenfügen: zwei Sequenzen im Bearbeitungsmodus zusammenlegen -->
+<!-- Schrittfolge-Tool v36-1 (01.07.) – Export: Einzelprojekt oder Alle Projekte, Dateiname mit Datum -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-<!-- PWA Manifest -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2f6fb3">
-
-<!-- iOS-spezifische PWA-Einstellungen -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Schrittfolge">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-
 <title>7 Sterne Stock – Schrittfolge</title>
 <style>
   :root{
@@ -78,7 +67,7 @@
 <div id="app">
   <header>
     <h1>7 Sterne Stock – Schrittfolge-Editor</h1>
-    <p class="sub">Symbole antippen-und-platzieren · mit Stift Pfeile/Drehrichtungen ergänzen <span style="color:#bbb;">· v35-11</span></p>
+    <p class="sub">Symbole antippen-und-platzieren · mit Stift Pfeile/Drehrichtungen ergänzen <span style="color:#bbb;">· v36-1</span></p>
   </header>
 
   <div class="toolbar">
@@ -1554,40 +1543,129 @@ document.getElementById('b-export').addEventListener('click', ()=>{
   }
 });
 
-// --- Projektdaten exportieren / importieren (portable Sicherung, ALLE Projekte) ---
-function exportProjectData(){
-  commitActiveProjectState();
-  const data = { app:'schrittfolge', version:31, projects, activeProjectName };
-  const text = JSON.stringify(data);
-  const fname = 'schrittfolge_alle_projekte.json';
-  if(IN_CLAUDE){ showTextOverlay(text); }
-  else { downloadText(fname, text); flashStatus('Daten gespeichert'); }
+// --- Projektdaten exportieren / importieren ---
+
+function dateStamp(){
+  const d = new Date();
+  return d.getFullYear().toString() +
+    String(d.getMonth()+1).padStart(2,'0') +
+    String(d.getDate()).padStart(2,'0');
 }
+
+function doExportSingle(){
+  commitActiveProjectState();
+  const p = projects[activeProjectName];
+  const data = { app:'schrittfolge', version:36, type:'single', projectName: activeProjectName, project: p };
+  const fname = sanitizeFileName(activeProjectName) + '_' + dateStamp() + '.json';
+  if(IN_CLAUDE){ showTextOverlay(JSON.stringify(data)); }
+  else { downloadText(fname, JSON.stringify(data)); flashStatus('Projekt gespeichert: ' + fname); }
+}
+
+function doExportAll(){
+  commitActiveProjectState();
+  const data = { app:'schrittfolge', version:36, type:'all', projects, activeProjectName };
+  const fname = 'AlleProjekte_' + dateStamp() + '.json';
+  if(IN_CLAUDE){ showTextOverlay(JSON.stringify(data)); }
+  else { downloadText(fname, JSON.stringify(data)); flashStatus('Alle Projekte gespeichert: ' + fname); }
+}
+
+function exportProjectData(){
+  // Auswahl-Dialog: Aktuelles Projekt oder Alle Projekte
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+
+  const title = document.createElement('p');
+  title.textContent = 'Was soll gespeichert werden?';
+  title.style.cssText = 'margin:0 0 14px;font-size:15px;font-weight:600;text-align:center;';
+  box.appendChild(title);
+
+  const btnSingle = document.createElement('button');
+  btnSingle.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ddeeff;color:#114;font-size:14px;font-weight:600;';
+  btnSingle.innerHTML = '📄 Aktuelles Projekt<br><span style="font-size:11px;font-weight:400;color:#446;">' + sanitizeFileName(activeProjectName) + '_' + dateStamp() + '.json</span>';
+  btnSingle.addEventListener('click', ()=>{ document.body.removeChild(overlay); doExportSingle(); });
+
+  const btnAll = document.createElement('button');
+  btnAll.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#eeffdd;color:#141;font-size:14px;font-weight:600;';
+  btnAll.innerHTML = '📦 Alle Projekte<br><span style="font-size:11px;font-weight:400;color:#464;">AlleProjekte_' + dateStamp() + '.json</span>';
+  btnAll.addEventListener('click', ()=>{ document.body.removeChild(overlay); doExportAll(); });
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Abbrechen';
+  btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#eee;color:#555;font-size:13px;';
+  btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
+
+  box.appendChild(btnSingle);
+  box.appendChild(btnAll);
+  box.appendChild(btnCancel);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
 function importProjectData(file){
   const reader = new FileReader();
   reader.onload = ()=>{
     try{
       const data = JSON.parse(reader.result);
-      pushHistory();
-      if(data.projects){
-        // Neues Multi-Projekt-Format
-        projects = data.projects;
-        activeProjectName = data.activeProjectName && projects[data.activeProjectName]
-          ? data.activeProjectName : Object.keys(projects)[0];
-      } else {
-        // Altes Einzelprojekt-Format -> als ein Projekt importieren
-        const importName = '7 Sterne';
-        projects[importName] = {
-          sequences: data.sequences || [],
-          state: data.current || { feet:[], bodies:[], labels:[], strokes:[] },
-          idCounter: data.idCounter || 1,
-          viewOffset: {x:0,y:0}, viewScale: 1
-        };
-        activeProjectName = importName;
+
+      // --- Einzelprojekt-Datei ---
+      if(data.type === 'single' && data.projectName && data.project){
+        const name = data.projectName;
+        if(projects[name]){
+          // Projekt mit diesem Namen existiert bereits → nachfragen
+          showConfirm(
+            'Projekt „' + name + '" existiert bereits. Soll es überschrieben werden?',
+            ()=>{
+              pushHistory();
+              projects[name] = data.project;
+              activateProject(name);
+              saveState();
+              flashStatus('Projekt „' + name + '" geladen');
+            },
+            'Ja, überschreiben'
+          );
+        } else {
+          pushHistory();
+          projects[name] = data.project;
+          activateProject(name);
+          saveState();
+          flashStatus('Projekt „' + name + '" hinzugefügt');
+        }
+        return;
       }
-      activateProject(activeProjectName);
+
+      // --- Alle-Projekte-Datei (neu oder Legacy) ---
+      if(data.projects || data.type === 'all'){
+        showConfirm(
+          'Alle aktuellen Projekte werden ersetzt. Fortfahren?',
+          ()=>{
+            pushHistory();
+            projects = data.projects;
+            activeProjectName = data.activeProjectName && projects[data.activeProjectName]
+              ? data.activeProjectName : Object.keys(projects)[0];
+            activateProject(activeProjectName);
+            saveState();
+            flashStatus('Alle Projekte geladen');
+          },
+          'Ja, ersetzen'
+        );
+        return;
+      }
+
+      // --- Altes Legacy-Einzelprojekt-Format (vor v36) ---
+      const importName = '7 Sterne';
+      pushHistory();
+      projects[importName] = {
+        sequences: data.sequences || [],
+        state: data.current || { feet:[], bodies:[], labels:[], strokes:[] },
+        idCounter: data.idCounter || 1,
+        viewOffset: {x:0,y:0}, viewScale: 1
+      };
+      activateProject(importName);
       saveState();
-      flashStatus('Daten geladen');
+      flashStatus('Daten geladen (Legacy-Format)');
+
     }catch(e){ flashStatus('Datei ungültig'); }
   };
   reader.readAsText(file);
@@ -2415,15 +2493,6 @@ document.getElementById('b-pptx').addEventListener('click', async ()=>{
 
 setTool('move');
 loadState();
-</script>
-
-<!-- Service Worker registrieren (für Offline-Funktion / PWA) -->
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js');
-    });
-  }
 </script>
 </body>
 </html>
