@@ -1,7 +1,8 @@
 // Schrittfolge-Tool – Service Worker
-// Bei jedem Update der App: Versionsnummer hochzählen (v1 -> v2 -> ...),
-// damit alle Geräte automatisch die neue Version laden.
-const CACHE = 'schrittfolge-v1';
+// WICHTIG: CACHE_VERSION bei jedem Update der App hochzählen (v2 -> v3 -> ...).
+// Der Cache-Name enthält die Version, damit alte Caches automatisch verworfen werden.
+const CACHE_VERSION = 'v2';
+const CACHE = 'schrittfolge-' + CACHE_VERSION;
 
 const FILES_TO_CACHE = [
   './index.html',
@@ -31,9 +32,22 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Bei jeder Anfrage: zuerst aus dem Cache bedienen, sonst aus dem Netz laden
+// Bei jeder Anfrage: ZUERST versuchen aktuelle Version aus dem Netz zu laden.
+// Nur wenn kein Internet verfügbar ist, wird auf den Cache zurückgefallen.
+// Das stellt sicher, dass neue App-Versionen sofort erkannt werden,
+// während die App offline trotzdem funktioniert (Cache als Fallback).
 self.addEventListener('fetch', e => {
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(networkResponse => {
+        // Erfolgreiche Netzwerk-Antwort: Cache aktualisieren und zurückgeben
+        const responseClone = networkResponse.clone();
+        caches.open(CACHE).then(cache => cache.put(e.request, responseClone));
+        return networkResponse;
+      })
+      .catch(() => {
+        // Kein Internet: aus dem Cache bedienen (Offline-Fallback)
+        return caches.match(e.request);
+      })
   );
 });
