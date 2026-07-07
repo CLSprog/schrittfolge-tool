@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool v36-1 (01.07.) – Export: Einzelprojekt oder Alle Projekte, Dateiname mit Datum -->
+<!-- Schrittfolge-Tool v36-6 (02.07.) – Lokal-Speichern mit echtem Speichern-unter-Dialog (File System Access API + Fallback), GitHub/pCloud vorlaeufig ausgegraut -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -72,7 +72,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub">Symbole antippen-und-platzieren · mit Stift Pfeile/Drehrichtungen ergänzen <span style="color:#bbb;">· v36-1</span></p>
+    <p class="sub">Symbole antippen-und-platzieren · mit Stift Pfeile/Drehrichtungen ergänzen <span style="color:#bbb;">· v36-6</span></p>
   </header>
 
   <div class="toolbar">
@@ -218,7 +218,7 @@
       <button id="b-project-delete" title="Projekt löschen"><span class="icon-char">🗑️</span></button>
     </div>
   </div>
-  <input type="file" id="file-import" accept="application/json,.json" style="display:none">
+  <input type="file" id="file-import" accept="application/json,.json,text/plain,*/*" style="display:none">
 
   <div id="edit-banner">
     <span id="edit-banner-label">Bearbeite Sequenz …</span>
@@ -253,6 +253,336 @@ let projects = {};
 let activeProjectName = null;
 let project = { sequences: [] }; // Bequemlichkeits-Alias: zeigt immer auf projects[activeProjectName]
 const IN_CLAUDE = !!(typeof window !== 'undefined' && window.storage && typeof window.storage.get === 'function');
+
+// --- Cloud-Anbindung (OneDrive / pCloud / GitHub) ---
+// WICHTIG: OneDrive/pCloud brauchen noch eine echte Client-ID (App-Registrierung).
+// GitHub funktioniert bereits jetzt über ein persönliches Zugriffstoken (kein OAuth-Redirect nötig).
+const CLOUD_CONFIG = {
+  onedrive: {
+    clientId: 'BITTE_AZURE_CLIENT_ID_EINTRAGEN', // z.B. 'c44b4083-3bb0-49c1-b47d-974e53cbdf3c'
+    redirectUri: window.location.origin + window.location.pathname,
+    scope: 'Files.ReadWrite offline_access',
+    authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+    tokenKey: 'schrittfolge-onedrive-token'
+  },
+  pcloud: {
+    clientId: 'BITTE_PCLOUD_CLIENT_ID_EINTRAGEN',
+    redirectUri: window.location.origin + window.location.pathname,
+    authUrl: 'https://my.pcloud.com/oauth2/authorize',
+    tokenKey: 'schrittfolge-pcloud-token'
+  },
+  github: {
+    tokenKey: 'schrittfolge-github-token',
+    repoKey: 'schrittfolge-github-repo', // Format: "benutzername/repository"
+    tokenBased: true // kein OAuth-Redirect, Token wird manuell eingegeben
+  }
+};
+
+function cloudIsConfigured(provider){
+  if(provider === 'github') return true; // GitHub braucht keine App-Registrierung
+  const cfg = CLOUD_CONFIG[provider];
+  return cfg && cfg.clientId && !cfg.clientId.startsWith('BITTE_');
+}
+
+function cloudGetToken(provider){
+  try{ return localStorage.getItem(CLOUD_CONFIG[provider].tokenKey); }catch(e){ return null; }
+}
+
+function cloudSetToken(provider, token){
+  try{ localStorage.setItem(CLOUD_CONFIG[provider].tokenKey, token); }catch(e){}
+}
+
+function cloudLogout(provider){
+  try{ localStorage.removeItem(CLOUD_CONFIG[provider].tokenKey); }catch(e){}
+}
+
+function githubGetRepo(){
+  try{ return localStorage.getItem(CLOUD_CONFIG.github.repoKey); }catch(e){ return null; }
+}
+function githubSetRepo(repo){
+  try{ localStorage.setItem(CLOUD_CONFIG.github.repoKey, repo); }catch(e){}
+}
+
+// Zeigt einen Dialog zur Eingabe von GitHub-Token + Repository (einmalig)
+function githubShowSetupDialog(onDone){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3100;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+
+  const title = document.createElement('p');
+  title.textContent = 'GitHub verbinden';
+  title.style.cssText = 'margin:0 0 10px;font-size:15px;font-weight:600;text-align:center;';
+  box.appendChild(title);
+
+  const info = document.createElement('p');
+  info.innerHTML = 'Repository (z.B. <i>clsprog/schrittfolge-daten</i>):';
+  info.style.cssText = 'margin:0 0 6px;font-size:12px;color:#555;';
+  box.appendChild(info);
+
+  const repoInput = document.createElement('input');
+  repoInput.type = 'text';
+  repoInput.placeholder = 'benutzername/repository';
+  repoInput.value = githubGetRepo() || '';
+  repoInput.style.cssText = 'width:100%;padding:10px;margin-bottom:12px;border:1px solid #ccc;border-radius:8px;font-size:13px;box-sizing:border-box;';
+  box.appendChild(repoInput);
+
+  const info2 = document.createElement('p');
+  info2.textContent = 'Persönliches Zugriffstoken (Personal Access Token):';
+  info2.style.cssText = 'margin:0 0 6px;font-size:12px;color:#555;';
+  box.appendChild(info2);
+
+  const tokenInput = document.createElement('input');
+  tokenInput.type = 'password';
+  tokenInput.placeholder = 'ghp_...';
+  tokenInput.value = cloudGetToken('github') || '';
+  tokenInput.style.cssText = 'width:100%;padding:10px;margin-bottom:14px;border:1px solid #ccc;border-radius:8px;font-size:13px;box-sizing:border-box;';
+  box.appendChild(tokenInput);
+
+  const btnSave = document.createElement('button');
+  btnSave.textContent = '✓ Speichern & Verbinden';
+  btnSave.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#24292e;color:#fff;font-size:14px;font-weight:600;';
+  btnSave.addEventListener('click', ()=>{
+    const repo = repoInput.value.trim();
+    const token = tokenInput.value.trim();
+    if(!repo || !repo.includes('/')){ flashStatus('Bitte gültiges Repository angeben (name/repo)'); return; }
+    if(!token){ flashStatus('Bitte Token eingeben'); return; }
+    githubSetRepo(repo);
+    cloudSetToken('github', token);
+    document.body.removeChild(overlay);
+    flashStatus('GitHub verbunden');
+    if(onDone) onDone();
+  });
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Abbrechen';
+  btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;';
+  btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
+
+  box.appendChild(btnSave);
+  box.appendChild(btnCancel);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+// GitHub Contents API: Datei anlegen/aktualisieren
+async function githubUpload(filename, content){
+  const token = cloudGetToken('github');
+  const repo = githubGetRepo();
+  if(!token || !repo) throw new Error('nicht eingeloggt');
+  const path = 'Schrittfolge/' + filename;
+  const apiUrl = 'https://api.github.com/repos/' + repo + '/contents/' + encodeURIComponent(path);
+
+  // Prüfen ob Datei bereits existiert (für sha, benötigt bei Update)
+  let sha = null;
+  try{
+    const getRes = await fetch(apiUrl, { headers: { 'Authorization': 'token ' + token } });
+    if(getRes.ok){ const j = await getRes.json(); sha = j.sha; }
+  }catch(e){}
+
+  const body = {
+    message: 'Schrittfolge-Tool: ' + filename + ' gespeichert',
+    content: btoa(unescape(encodeURIComponent(content)))
+  };
+  if(sha) body.sha = sha;
+
+  const res = await fetch(apiUrl, {
+    method: 'PUT',
+    headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if(!res.ok){
+    const errText = await res.text();
+    throw new Error('Upload fehlgeschlagen: ' + res.status + ' ' + errText);
+  }
+  return res.json();
+}
+
+// GitHub Contents API: Dateien im Schrittfolge-Ordner auflisten
+async function githubListFiles(){
+  const token = cloudGetToken('github');
+  const repo = githubGetRepo();
+  if(!token || !repo) throw new Error('nicht eingeloggt');
+  const apiUrl = 'https://api.github.com/repos/' + repo + '/contents/Schrittfolge';
+  const res = await fetch(apiUrl, { headers: { 'Authorization': 'token ' + token } });
+  if(res.status === 404) return []; // Ordner existiert noch nicht -> leere Liste
+  if(!res.ok) throw new Error('Abruf fehlgeschlagen: ' + res.status);
+  const data = await res.json();
+  return (Array.isArray(data) ? data : []).filter(f => f.name.endsWith('.json'));
+}
+
+// GitHub Contents API: Dateiinhalt laden
+async function githubDownload(filename){
+  const token = cloudGetToken('github');
+  const repo = githubGetRepo();
+  if(!token || !repo) throw new Error('nicht eingeloggt');
+  const path = 'Schrittfolge/' + filename;
+  const apiUrl = 'https://api.github.com/repos/' + repo + '/contents/' + encodeURIComponent(path);
+  const res = await fetch(apiUrl, { headers: { 'Authorization': 'token ' + token } });
+  if(!res.ok) throw new Error('Download fehlgeschlagen: ' + res.status);
+  const data = await res.json();
+  return decodeURIComponent(escape(atob(data.content)));
+}
+
+
+// Startet den OAuth-Login für den gewünschten Cloud-Anbieter (Redirect-Flow)
+function cloudStartLogin(provider){
+  const cfg = CLOUD_CONFIG[provider];
+  if(!cloudIsConfigured(provider)){
+    showConfirm(
+      (provider === 'onedrive' ? 'OneDrive' : 'pCloud') + ' ist noch nicht eingerichtet (fehlende Client-ID). ' +
+      'Diese Funktion ist vorbereitet, muss aber von einer Person mit Entwickler-Zugang zu ' +
+      (provider === 'onedrive' ? 'Azure' : 'pCloud') + ' fertig konfiguriert werden.',
+      ()=>{}, 'Verstanden'
+    );
+    return;
+  }
+  sessionStorage.setItem('schrittfolge-cloud-pending', provider);
+  let url;
+  if(provider === 'onedrive'){
+    url = cfg.authUrl + '?client_id=' + encodeURIComponent(cfg.clientId) +
+      '&response_type=token' +
+      '&redirect_uri=' + encodeURIComponent(cfg.redirectUri) +
+      '&scope=' + encodeURIComponent(cfg.scope);
+  } else {
+    url = cfg.authUrl + '?client_id=' + encodeURIComponent(cfg.clientId) +
+      '&response_type=token' +
+      '&redirect_uri=' + encodeURIComponent(cfg.redirectUri);
+  }
+  window.location.href = url;
+}
+
+// Prüft beim Laden der Seite, ob wir gerade von einem OAuth-Redirect zurückkommen
+function cloudCheckRedirect(){
+  if(!window.location.hash) return;
+  const params = new URLSearchParams(window.location.hash.substring(1));
+  const token = params.get('access_token');
+  if(!token) return;
+  const provider = sessionStorage.getItem('schrittfolge-cloud-pending');
+  if(!provider) return;
+  cloudSetToken(provider, token);
+  sessionStorage.removeItem('schrittfolge-cloud-pending');
+  history.replaceState(null, '', window.location.pathname);
+  flashStatus((provider === 'onedrive' ? 'OneDrive' : 'pCloud') + ' verbunden');
+}
+
+// Lädt eine Datei in OneDrive hoch (in den App-Ordner "Schrittfolge")
+async function onedriveUpload(filename, content){
+  const token = cloudGetToken('onedrive');
+  if(!token) throw new Error('nicht eingeloggt');
+  const url = 'https://graph.microsoft.com/v1.0/me/drive/root:/Schrittfolge/' + encodeURIComponent(filename) + ':/content';
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: content
+  });
+  if(!res.ok) throw new Error('Upload fehlgeschlagen: ' + res.status);
+  return res.json();
+}
+
+// Listet Dateien im Schrittfolge-Ordner von OneDrive
+async function onedriveListFiles(){
+  const token = cloudGetToken('onedrive');
+  if(!token) throw new Error('nicht eingeloggt');
+  const url = 'https://graph.microsoft.com/v1.0/me/drive/root:/Schrittfolge:/children';
+  const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+  if(!res.ok) throw new Error('Abruf fehlgeschlagen: ' + res.status);
+  const data = await res.json();
+  return (data.value || []).filter(f => f.name.endsWith('.json'));
+}
+
+// Lädt den Inhalt einer Datei aus OneDrive
+async function onedriveDownload(filename){
+  const token = cloudGetToken('onedrive');
+  if(!token) throw new Error('nicht eingeloggt');
+  const url = 'https://graph.microsoft.com/v1.0/me/drive/root:/Schrittfolge/' + encodeURIComponent(filename) + ':/content';
+  const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+  if(!res.ok) throw new Error('Download fehlgeschlagen: ' + res.status);
+  return res.text();
+}
+
+// pCloud-Äquivalente (Struktur vorbereitet, Endpunkte nach Registrierung zu prüfen)
+async function pcloudUpload(filename, content){
+  const token = cloudGetToken('pcloud');
+  if(!token) throw new Error('nicht eingeloggt');
+  const blob = new Blob([content], {type:'application/json'});
+  const form = new FormData();
+  form.append('filename', filename);
+  form.append('file', blob, filename);
+  const url = 'https://api.pcloud.com/uploadfile?auth=' + encodeURIComponent(token) + '&path=/Schrittfolge';
+  const res = await fetch(url, { method:'POST', body: form });
+  if(!res.ok) throw new Error('Upload fehlgeschlagen: ' + res.status);
+  return res.json();
+}
+
+async function pcloudListFiles(){
+  const token = cloudGetToken('pcloud');
+  if(!token) throw new Error('nicht eingeloggt');
+  const url = 'https://api.pcloud.com/listfolder?auth=' + encodeURIComponent(token) + '&path=/Schrittfolge';
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Abruf fehlgeschlagen: ' + res.status);
+  const data = await res.json();
+  return ((data.metadata && data.metadata.contents) || []).filter(f => f.name.endsWith('.json'));
+}
+
+async function pcloudDownload(filename){
+  const token = cloudGetToken('pcloud');
+  if(!token) throw new Error('nicht eingeloggt');
+  const linkUrl = 'https://api.pcloud.com/getfilelink?auth=' + encodeURIComponent(token) + '&path=/Schrittfolge/' + encodeURIComponent(filename);
+  const linkRes = await fetch(linkUrl);
+  const linkData = await linkRes.json();
+  const fileUrl = 'https://' + linkData.hosts[0] + linkData.path;
+  const res = await fetch(fileUrl);
+  return res.text();
+}
+
+// Zeigt einen Dialog zur Eingabe des pCloud-Zugriffstokens (einmalig pro Gerät)
+function pcloudShowSetupDialog(onDone){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3100;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+
+  const title = document.createElement('p');
+  title.textContent = 'pCloud verbinden';
+  title.style.cssText = 'margin:0 0 10px;font-size:15px;font-weight:600;text-align:center;';
+  box.appendChild(title);
+
+  const info = document.createElement('p');
+  info.innerHTML = 'Zugriffstoken von pCloud (My pCloud → Einstellungen → Ihr Konto → "Access Token" bzw. über die pCloud-API-Konsole erzeugt):';
+  info.style.cssText = 'margin:0 0 6px;font-size:12px;color:#555;';
+  box.appendChild(info);
+
+  const tokenInput = document.createElement('input');
+  tokenInput.type = 'password';
+  tokenInput.placeholder = 'Zugriffstoken einfügen';
+  tokenInput.value = cloudGetToken('pcloud') || '';
+  tokenInput.style.cssText = 'width:100%;padding:10px;margin-bottom:14px;border:1px solid #ccc;border-radius:8px;font-size:13px;box-sizing:border-box;';
+  box.appendChild(tokenInput);
+
+  const btnSave = document.createElement('button');
+  btnSave.textContent = '✓ Speichern & Verbinden';
+  btnSave.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#1eb2f5;color:#fff;font-size:14px;font-weight:600;';
+  btnSave.addEventListener('click', ()=>{
+    const token = tokenInput.value.trim();
+    if(!token){ flashStatus('Bitte Token eingeben'); return; }
+    cloudSetToken('pcloud', token);
+    document.body.removeChild(overlay);
+    flashStatus('pCloud verbunden');
+    if(onDone) onDone();
+  });
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Abbrechen';
+  btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;';
+  btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
+
+  box.appendChild(btnSave);
+  box.appendChild(btnCancel);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
 let history = [];
 let currentTool = 'move';
 let currentPenColor = 'blue';
@@ -1558,20 +1888,166 @@ function dateStamp(){
 }
 
 function doExportSingle(){
-  commitActiveProjectState();
-  const p = projects[activeProjectName];
-  const data = { app:'schrittfolge', version:36, type:'single', projectName: activeProjectName, project: p };
-  const fname = sanitizeFileName(activeProjectName) + '_' + dateStamp() + '.json';
-  if(IN_CLAUDE){ showTextOverlay(JSON.stringify(data)); }
-  else { downloadText(fname, JSON.stringify(data)); flashStatus('Projekt gespeichert: ' + fname); }
+  showStorageTargetDialog('single');
 }
 
 function doExportAll(){
+  showStorageTargetDialog('all');
+}
+
+// Baut das JSON-Datenpaket + Dateinamen für den gewünschten Export-Typ
+function buildExportPayload(exportType){
   commitActiveProjectState();
-  const data = { app:'schrittfolge', version:36, type:'all', projects, activeProjectName };
-  const fname = 'AlleProjekte_' + dateStamp() + '.json';
-  if(IN_CLAUDE){ showTextOverlay(JSON.stringify(data)); }
-  else { downloadText(fname, JSON.stringify(data)); flashStatus('Alle Projekte gespeichert: ' + fname); }
+  if(exportType === 'single'){
+    const p = projects[activeProjectName];
+    const data = { app:'schrittfolge', version:36, type:'single', projectName: activeProjectName, project: p };
+    const fname = sanitizeFileName(activeProjectName) + '_' + dateStamp() + '.json';
+    return { data, fname };
+  } else {
+    const data = { app:'schrittfolge', version:36, type:'all', projects, activeProjectName };
+    const fname = 'AlleProjekte_' + dateStamp() + '.json';
+    return { data, fname };
+  }
+}
+
+// Prüft ob der Browser einen echten "Speichern unter"-Dialog unterstützt
+function supportsSaveFilePicker(){
+  return typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function';
+}
+
+// Speichert Text lokal: mit "Speichern unter"-Dialog falls verfügbar, sonst automatischer Download
+async function saveTextLocal(fname, text){
+  if(supportsSaveFilePicker()){
+    try{
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fname,
+        types: [{ description: 'JSON-Datei', accept: {'application/json': ['.json']} }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      flashStatus('Gespeichert: ' + handle.name);
+    }catch(e){
+      // Nutzer hat den Dialog abgebrochen, oder ein Fehler ist aufgetreten
+      if(e && e.name === 'AbortError'){ flashStatus('Speichern abgebrochen'); }
+      else { flashStatus('Speichern fehlgeschlagen'); }
+    }
+  } else {
+    downloadText(fname, text);
+    flashStatus('Gespeichert: ' + fname);
+  }
+}
+
+// Zweiter Dialog: Speicherort wählen (Lokal mit Speichern-unter / GitHub / pCloud, letztere derzeit ausgegraut)
+function showStorageTargetDialog(exportType){
+  const { data, fname } = buildExportPayload(exportType);
+  const text = JSON.stringify(data);
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+
+  const title = document.createElement('p');
+  title.textContent = 'Wo soll gespeichert werden?';
+  title.style.cssText = 'margin:0 0 4px;font-size:15px;font-weight:600;text-align:center;';
+  box.appendChild(title);
+
+  const sub = document.createElement('p');
+  sub.textContent = fname;
+  sub.style.cssText = 'margin:0 0 14px;font-size:11px;color:#888;text-align:center;';
+  box.appendChild(sub);
+
+  const btnLocal = document.createElement('button');
+  btnLocal.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#eee;color:#333;font-size:14px;font-weight:600;';
+  btnLocal.innerHTML = '💾 Lokal (Gerät)';
+  btnLocal.addEventListener('click', async ()=>{
+    document.body.removeChild(overlay);
+    if(IN_CLAUDE){ showTextOverlay(text); }
+    else { await saveTextLocal(fname, text); }
+  });
+
+  const btnGithub = document.createElement('button');
+  btnGithub.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ccc;color:#777;font-size:14px;font-weight:600;cursor:not-allowed;';
+  btnGithub.innerHTML = '🐙 GitHub <span style="font-size:11px;font-weight:400;">(derzeit nicht verfügbar)</span>';
+  btnGithub.addEventListener('click', ()=>{
+    showConfirm('GitHub-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
+  });
+
+  const btnPcloud = document.createElement('button');
+  btnPcloud.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ccc;color:#777;font-size:14px;font-weight:600;cursor:not-allowed;';
+  btnPcloud.innerHTML = '☁️ pCloud <span style="font-size:11px;font-weight:400;">(derzeit nicht verfügbar)</span>';
+  btnPcloud.addEventListener('click', ()=>{
+    showConfirm('pCloud-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
+  });
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Abbrechen';
+  btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;';
+  btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
+
+  box.appendChild(btnLocal);
+  box.appendChild(btnGithub);
+  box.appendChild(btnPcloud);
+  box.appendChild(btnCancel);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+
+// Führt Login/Setup (falls nötig) und Upload für den gewählten Cloud-Anbieter durch
+async function cloudSaveFlow(provider, fname, text){
+  if(provider === 'github'){
+    if(!cloudGetToken('github') || !githubGetRepo()){
+      githubShowSetupDialog(()=> cloudSaveFlow('github', fname, text));
+      return;
+    }
+    try{
+      flashStatus('GitHub: speichere...');
+      await githubUpload(fname, text);
+      flashStatus('In GitHub gespeichert: ' + fname);
+    }catch(e){
+      flashStatus('GitHub-Speichern fehlgeschlagen');
+    }
+    return;
+  }
+
+  if(provider === 'pcloud'){
+    if(!cloudGetToken('pcloud')){
+      pcloudShowSetupDialog(()=> cloudSaveFlow('pcloud', fname, text));
+      return;
+    }
+    try{
+      flashStatus('pCloud: speichere...');
+      await pcloudUpload(fname, text);
+      flashStatus('In pCloud gespeichert: ' + fname);
+    }catch(e){
+      flashStatus('pCloud-Speichern fehlgeschlagen');
+    }
+    return;
+  }
+
+  // OneDrive (OAuth-Redirect-Weg, noch nicht konfiguriert)
+  if(!cloudIsConfigured(provider)){
+    showConfirm(
+      'OneDrive ist noch nicht eingerichtet (fehlende Client-ID). ' +
+      'Diese Funktion ist vorbereitet, muss aber noch fertig konfiguriert werden.',
+      ()=>{}, 'Verstanden'
+    );
+    return;
+  }
+  if(!cloudGetToken(provider)){
+    sessionStorage.setItem('schrittfolge-cloud-resume', JSON.stringify({ fname, text, provider }));
+    cloudStartLogin(provider);
+    return;
+  }
+  try{
+    flashStatus('OneDrive: speichere...');
+    await onedriveUpload(fname, text);
+    flashStatus('In OneDrive gespeichert: ' + fname);
+  }catch(e){
+    flashStatus('Cloud-Speichern fehlgeschlagen');
+  }
 }
 
 function exportProjectData(){
@@ -1610,70 +2086,74 @@ function exportProjectData(){
 
 function importProjectData(file){
   const reader = new FileReader();
-  reader.onload = ()=>{
-    try{
-      const data = JSON.parse(reader.result);
+  reader.onload = ()=>{ importProjectDataFromText(reader.result); };
+  reader.readAsText(file);
+}
 
-      // --- Einzelprojekt-Datei ---
-      if(data.type === 'single' && data.projectName && data.project){
-        const name = data.projectName;
-        if(projects[name]){
-          // Projekt mit diesem Namen existiert bereits → nachfragen
-          showConfirm(
-            'Projekt „' + name + '" existiert bereits. Soll es überschrieben werden?',
-            ()=>{
-              pushHistory();
-              projects[name] = data.project;
-              activateProject(name);
-              saveState();
-              flashStatus('Projekt „' + name + '" geladen');
-            },
-            'Ja, überschreiben'
-          );
-        } else {
-          pushHistory();
-          projects[name] = data.project;
-          activateProject(name);
-          saveState();
-          flashStatus('Projekt „' + name + '" hinzugefügt');
-        }
-        return;
-      }
+// Kernlogik des Imports, arbeitet direkt mit dem JSON-Text.
+// Wird sowohl vom lokalen Datei-Import als auch vom Cloud-Import verwendet.
+function importProjectDataFromText(text){
+  try{
+    const data = JSON.parse(text);
 
-      // --- Alle-Projekte-Datei (neu oder Legacy) ---
-      if(data.projects || data.type === 'all'){
+    // --- Einzelprojekt-Datei ---
+    if(data.type === 'single' && data.projectName && data.project){
+      const name = data.projectName;
+      if(projects[name]){
+        // Projekt mit diesem Namen existiert bereits → nachfragen
         showConfirm(
-          'Alle aktuellen Projekte werden ersetzt. Fortfahren?',
+          'Projekt „' + name + '" existiert bereits. Soll es überschrieben werden?',
           ()=>{
             pushHistory();
-            projects = data.projects;
-            activeProjectName = data.activeProjectName && projects[data.activeProjectName]
-              ? data.activeProjectName : Object.keys(projects)[0];
-            activateProject(activeProjectName);
+            projects[name] = data.project;
+            activateProject(name);
             saveState();
-            flashStatus('Alle Projekte geladen');
+            flashStatus('Projekt „' + name + '" geladen');
           },
-          'Ja, ersetzen'
+          'Ja, überschreiben'
         );
-        return;
+      } else {
+        pushHistory();
+        projects[name] = data.project;
+        activateProject(name);
+        saveState();
+        flashStatus('Projekt „' + name + '" hinzugefügt');
       }
+      return;
+    }
 
-      // --- Altes Legacy-Einzelprojekt-Format (vor v36) ---
-      const importName = '7 Sterne';
-      pushHistory();
-      projects[importName] = {
-        sequences: data.sequences || [],
-        state: data.current || { feet:[], bodies:[], labels:[], strokes:[] },
-        idCounter: data.idCounter || 1,
-        viewOffset: {x:0,y:0}, viewScale: 1
-      };
-      activateProject(importName);
-      saveState();
-      flashStatus('Daten geladen (Legacy-Format)');
+    // --- Alle-Projekte-Datei (neu oder Legacy) ---
+    if(data.projects || data.type === 'all'){
+      showConfirm(
+        'Alle aktuellen Projekte werden ersetzt. Fortfahren?',
+        ()=>{
+          pushHistory();
+          projects = data.projects;
+          activeProjectName = data.activeProjectName && projects[data.activeProjectName]
+            ? data.activeProjectName : Object.keys(projects)[0];
+          activateProject(activeProjectName);
+          saveState();
+          flashStatus('Alle Projekte geladen');
+        },
+        'Ja, ersetzen'
+      );
+      return;
+    }
 
-    }catch(e){ flashStatus('Datei ungültig'); }
-  };
-  reader.readAsText(file);
+    // --- Altes Legacy-Einzelprojekt-Format (vor v36) ---
+    const importName = '7 Sterne';
+    pushHistory();
+    projects[importName] = {
+      sequences: data.sequences || [],
+      state: data.current || { feet:[], bodies:[], labels:[], strokes:[] },
+      idCounter: data.idCounter || 1,
+      viewOffset: {x:0,y:0}, viewScale: 1
+    };
+    activateProject(importName);
+    saveState();
+    flashStatus('Daten geladen (Legacy-Format)');
+
+  }catch(e){ flashStatus('Datei ungültig'); }
 }
 
 function hitTest(pos){
@@ -2123,12 +2603,138 @@ document.getElementById('b-restart-from-last').addEventListener('click', ()=>{
   );
 });
 document.getElementById('b-data-export').addEventListener('click', exportProjectData);
-document.getElementById('b-data-import').addEventListener('click', ()=> document.getElementById('file-import').click());
+document.getElementById('b-data-import').addEventListener('click', showImportSourceDialog);
 document.getElementById('file-import').addEventListener('change', (e)=>{
   const f = e.target.files && e.target.files[0];
   if(f) importProjectData(f);
   e.target.value = '';
 });
+
+// Auswahl-Dialog: Woher soll geladen werden? (Lokal / OneDrive / pCloud)
+function showImportSourceDialog(){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+
+  const title = document.createElement('p');
+  title.textContent = 'Woher soll geladen werden?';
+  title.style.cssText = 'margin:0 0 14px;font-size:15px;font-weight:600;text-align:center;';
+  box.appendChild(title);
+
+  const btnLocal = document.createElement('button');
+  btnLocal.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#eee;color:#333;font-size:14px;font-weight:600;';
+  btnLocal.innerHTML = '💾 Lokal (Gerät)';
+  btnLocal.addEventListener('click', ()=>{
+    document.body.removeChild(overlay);
+    document.getElementById('file-import').click();
+  });
+
+  const btnGithub = document.createElement('button');
+  btnGithub.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ccc;color:#777;font-size:14px;font-weight:600;cursor:not-allowed;';
+  btnGithub.innerHTML = '🐙 GitHub <span style="font-size:11px;font-weight:400;">(derzeit nicht verfügbar)</span>';
+  btnGithub.addEventListener('click', ()=>{
+    showConfirm('GitHub-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
+  });
+
+  const btnPcloud = document.createElement('button');
+  btnPcloud.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ccc;color:#777;font-size:14px;font-weight:600;cursor:not-allowed;';
+  btnPcloud.innerHTML = '☁️ pCloud <span style="font-size:11px;font-weight:400;">(derzeit nicht verfügbar)</span>';
+  btnPcloud.addEventListener('click', ()=>{
+    showConfirm('pCloud-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
+  });
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Abbrechen';
+  btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;';
+  btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
+
+  box.appendChild(btnLocal);
+  box.appendChild(btnGithub);
+  box.appendChild(btnPcloud);
+  box.appendChild(btnCancel);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+// Zeigt die Dateiliste eines Cloud-Anbieters zur Auswahl an; startet bei Bedarf zuerst das Setup
+async function showCloudFileList(provider){
+  const providerLabel = provider === 'github' ? 'GitHub' : (provider === 'pcloud' ? 'pCloud' : 'OneDrive');
+
+  if(provider === 'github' && (!cloudGetToken('github') || !githubGetRepo())){
+    githubShowSetupDialog(()=> showCloudFileList('github'));
+    return;
+  }
+  if(provider === 'pcloud' && !cloudGetToken('pcloud')){
+    pcloudShowSetupDialog(()=> showCloudFileList('pcloud'));
+    return;
+  }
+  if(provider === 'onedrive'){
+    if(!cloudIsConfigured('onedrive')){
+      showConfirm('OneDrive ist noch nicht eingerichtet (fehlende Client-ID).', ()=>{}, 'Verstanden');
+      return;
+    }
+    if(!cloudGetToken('onedrive')){
+      sessionStorage.setItem('schrittfolge-cloud-resume-import', provider);
+      cloudStartLogin(provider);
+      return;
+    }
+  }
+
+  flashStatus('Lade Dateiliste...');
+  try{
+    let files;
+    if(provider === 'github'){ files = await githubListFiles(); }
+    else if(provider === 'pcloud'){ files = await pcloudListFiles(); }
+    else { files = await onedriveListFiles(); }
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;max-height:70vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+
+    const title = document.createElement('p');
+    title.textContent = providerLabel + ' – Datei wählen';
+    title.style.cssText = 'margin:0 0 14px;font-size:15px;font-weight:600;text-align:center;';
+    box.appendChild(title);
+
+    if(files.length === 0){
+      const empty = document.createElement('p');
+      empty.textContent = 'Keine gespeicherten Dateien gefunden.';
+      empty.style.cssText = 'font-size:13px;color:#888;text-align:center;';
+      box.appendChild(empty);
+    }
+
+    files.forEach(f=>{
+      const btn = document.createElement('button');
+      btn.textContent = f.name;
+      btn.style.cssText = 'width:100%;margin-bottom:8px;padding:10px;border:none;border-radius:8px;background:#f2f2f2;color:#222;font-size:13px;text-align:left;';
+      btn.addEventListener('click', async ()=>{
+        document.body.removeChild(overlay);
+        flashStatus('Lade Datei...');
+        try{
+          let text;
+          if(provider === 'github'){ text = await githubDownload(f.name); }
+          else if(provider === 'pcloud'){ text = await pcloudDownload(f.name); }
+          else { text = await onedriveDownload(f.name); }
+          importProjectDataFromText(text);
+        }catch(e){ flashStatus('Laden fehlgeschlagen'); }
+      });
+      box.appendChild(btn);
+    });
+
+    const btnCancel = document.createElement('button');
+    btnCancel.textContent = 'Abbrechen';
+    btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;margin-top:6px;';
+    btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
+    box.appendChild(btnCancel);
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }catch(e){
+    flashStatus('Dateiliste konnte nicht geladen werden');
+  }
+}
 
 document.getElementById('project-select').addEventListener('change', (e)=>{
   switchProject(e.target.value);
@@ -2498,6 +3104,30 @@ document.getElementById('b-pptx').addEventListener('click', async ()=>{
 
 setTool('move');
 loadState();
+cloudCheckRedirect();
+
+// Falls wir gerade von einem Cloud-Login zurückkommen: unterbrochenen Speichervorgang fortsetzen
+(function resumeCloudSaveIfPending(){
+  const pendingRaw = sessionStorage.getItem('schrittfolge-cloud-resume');
+  if(pendingRaw){
+    sessionStorage.removeItem('schrittfolge-cloud-resume');
+    const pending = JSON.parse(pendingRaw);
+    setTimeout(()=>{
+      if(cloudGetToken(pending.provider)){
+        cloudSaveFlow(pending.provider, pending.fname, pending.text);
+      }
+    }, 300);
+  }
+  const pendingImport = sessionStorage.getItem('schrittfolge-cloud-resume-import');
+  if(pendingImport){
+    sessionStorage.removeItem('schrittfolge-cloud-resume-import');
+    setTimeout(()=>{
+      if(cloudGetToken(pendingImport)){
+        showCloudFileList(pendingImport);
+      }
+    }, 300);
+  }
+})();
 </script>
 </body>
 </html>
