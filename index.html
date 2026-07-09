@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool v37-1 – Koordinaten-Fix Neues Bild (beide Stellen) + Datum im Dateinamen -->
+<!-- Schrittfolge-Tool F1-00 (09.07.2026) - Erste offizielle Release-Version. Basiert auf v36-15: Anker-Fuesse dauerhaft gesperrt, Gesamtbild/PPTX-Export ueber echte Anker-Verkettung, Datumsstempel bei allen Exporten, Streifen-Symbol, 2-Finger-Gesten, Tastatur-Kurzbefehle, Notfall-Neustart, aufgeraeumter Dialog-Code. Cross-Platform-Kompatibilitaet (Android/iOS/macOS/Windows) geprueft. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -48,13 +48,15 @@
   }
   button.active{background:var(--accent);color:white;border-color:var(--accent);}
   button:active{filter:brightness(0.95);}
+  button.secondary-tool{opacity:0.4;}
+  button.secondary-tool.active{opacity:1;}
   .icon-char{font-size:16px;line-height:1;}
   .swatch{width:14px;height:18px;border-radius:50% / 60%;border:1.3px solid #444;display:inline-block;}
   .sw-white{background:#fff;}
   .sw-gray{background:var(--gray);}
   .sw-black{background:var(--dark);}
   .sw-body{background:linear-gradient(to bottom, #eaf4fc 50%, #6fa8dc 50%);border-color:#4f8fcf;border-radius:50%;width:16px;height:16px;}
-  .canvas-wrap{flex:1;overflow:auto;background:var(--bg);-webkit-overflow-scrolling:touch;}
+  .canvas-wrap{flex:1;overflow:auto;background:var(--bg);-webkit-overflow-scrolling:touch;touch-action:none;}
   #c{display:block;background:var(--paper);touch-action:none;}
   footer{padding:6px 12px 10px;background:var(--paper);border-top:1px solid var(--border);font-size:11px;color:#888;display:flex;justify-content:space-between;align-items:center;}
   #status{transition:opacity 0.4s;opacity:0;}
@@ -72,7 +74,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub">Symbole antippen-und-platzieren · mit Stift Pfeile/Drehrichtungen ergänzen <span style="color:#bbb;">· v37-1</span></p>
+    <p class="sub">Symbole antippen-und-platzieren · mit Stift Pfeile/Drehrichtungen ergänzen <span style="color:#bbb;">· F1-00</span></p>
   </header>
 
   <div class="toolbar">
@@ -169,6 +171,15 @@
           <polygon points="0,-7 -7,7 7,7" fill="#2e7d32" transform="translate(30,10) rotate(45)"/>
         </svg>
       </button>
+      <button id="t-foot-stripes" data-tool="foot-stripes" title="Streifen (5 rote Striche)">
+        <svg viewBox="-14 -32 28 64" width="16" height="36">
+          <line x1="0" y1="-32.00" x2="0" y2="-22.86" stroke="#e8231a" stroke-width="4.5" stroke-linecap="round"/>
+          <line x1="0" y1="-18.29" x2="0" y2="-9.14" stroke="#e8231a" stroke-width="4.5" stroke-linecap="round"/>
+          <line x1="0" y1="-4.57" x2="0" y2="4.57" stroke="#e8231a" stroke-width="4.5" stroke-linecap="round"/>
+          <line x1="0" y1="9.14" x2="0" y2="18.29" stroke="#e8231a" stroke-width="4.5" stroke-linecap="round"/>
+          <line x1="0" y1="22.86" x2="0" y2="32.00" stroke="#e8231a" stroke-width="4.5" stroke-linecap="round"/>
+        </svg>
+      </button>
       <button id="t-label" data-tool="label" title="Text"><span class="icon-char" style="font-weight:700;font-size:13px;letter-spacing:0.5px;">ABC</span></button>
       <button id="t-move" data-tool="move" title="Verschieben/Drehen"><span class="icon-char">✥</span></button>
       <button id="t-erase" data-tool="erase" title="Radierer">
@@ -182,9 +193,9 @@
       <button id="b-undo" title="Rückgängig"><span class="icon-char">↶</span></button>
     </div>
     <div class="group">
-      <button id="t-pan" data-tool="pan" title="Pan"><span class="icon-char">✋</span></button>
-      <button id="b-zoom-out" title="Zoom verkleinern"><span class="icon-char">🔍−</span></button>
-      <button id="b-zoom-in" title="Zoom vergrößern"><span class="icon-char">🔍+</span></button>
+      <button id="t-pan" data-tool="pan" class="secondary-tool" title="Pan (jetzt auch: leere Fläche ziehen, oder zwei Finger)"><span class="icon-char">✋</span></button>
+      <button id="b-zoom-out" class="secondary-tool" title="Zoom verkleinern (jetzt auch: zwei Finger, Strg+Mausrad)"><span class="icon-char">🔍−</span></button>
+      <button id="b-zoom-in" class="secondary-tool" title="Zoom vergrößern (jetzt auch: zwei Finger, Strg+Mausrad)"><span class="icon-char">🔍+</span></button>
       <button id="b-new-image" title="Neues Bild"><span class="icon-char" style="font-weight:700;font-size:10px;letter-spacing:0.3px;">new</span></button>
       <button id="b-export" title="Speichern"><span class="icon-char">💾</span></button>
       <button id="b-clear" title="Alles löschen"><span class="icon-char">🗑️</span></button>
@@ -305,10 +316,8 @@ function githubSetRepo(repo){
 
 // Zeigt einen Dialog zur Eingabe von GitHub-Token + Repository (einmalig)
 function githubShowSetupDialog(onDone){
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3100;display:flex;align-items:center;justify-content:center;';
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3100;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
 
   const title = document.createElement('p');
   title.textContent = 'GitHub verbinden';
@@ -538,10 +547,8 @@ async function pcloudDownload(filename){
 
 // Zeigt einen Dialog zur Eingabe des pCloud-Zugriffstokens (einmalig pro Gerät)
 function pcloudShowSetupDialog(onDone){
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3100;display:flex;align-items:center;justify-content:center;';
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3100;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
 
   const title = document.createElement('p');
   title.textContent = 'pCloud verbinden';
@@ -594,6 +601,9 @@ let idCounter = 1;
 let viewOffset = {x:0, y:0};
 let viewScale = 1;
 let panStart = null;
+let panDownPos = null; // feste Ausgangsposition der aktuellen Pan-Geste (für Tipp-vs-Ziehen-Erkennung)
+let panMoved = false;  // true, sobald die Bewegung die Toleranzschwelle überschritten hat
+let spacePanActive = false; // true, solange die Leertaste gedrückt gehalten wird (Temporäres Pan)
 
 // Bearbeitungsmodus
 let editMode = false;
@@ -628,13 +638,15 @@ const toolNames = {
   'foot-gray-front':'Zehen Heben Zwischenschritt',
   'foot-gray-back':'Ferse Heben Zwischenschritt',
   'foot-gray-both':'Heben Zwischenschritt',
+  'foot-stripes':'Streifen',
   'body':'Kopf',
   'move':'Verschieben/Drehen',
   'pan':'Pan',
   'pen':'Stift',
   'label':'Text',
   'erase':'Radierer',
-  'bg-pan':'Hintergrund verschieben'
+  'bg-pan':'Hintergrund verschieben',
+  'idle':'Verschieben (1 Finger)'
 };
 
 function newId(){ return idCounter++; }
@@ -668,7 +680,7 @@ function computeContentBounds(st){
   st = st || state;
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
   function consider(x,y,pad){ minX=Math.min(minX,x-pad); minY=Math.min(minY,y-pad); maxX=Math.max(maxX,x+pad); maxY=Math.max(maxY,y+pad); }
-  st.feet.forEach(f=>consider(f.x,f.y,30));
+  st.feet.forEach(f=>consider(f.x,f.y, f.color==='stripes' ? 48 : 30));
   st.bodies.forEach(b=>consider(b.x,b.y,40));
   st.labels.forEach(l=>{ const fs = l.isNum ? 20.25 : 14.625; consider(l.x,l.y,fs); });
   st.strokes.forEach(s=> s.points.forEach(p=>consider(p.x,p.y,20)));
@@ -756,6 +768,29 @@ function drawFoot(f){
   ctx.translate(f.x,f.y);
   ctx.rotate(f.rot);
   ctx.scale(0.22,0.22);
+
+  if(f.color === 'stripes'){
+    // 5 gleich lange rote Striche, Gesamthöhe = doppelte Fuß-Höhe (lokale Koordinaten wie beim Fuß)
+    ctx.strokeStyle = '#e8231a';
+    ctx.lineWidth = 20;
+    ctx.lineCap = 'round';
+    const stripeRanges = [
+      [-200.000, -142.857],
+      [-114.286, -57.143],
+      [-28.571, 28.571],
+      [57.143, 114.286],
+      [142.857, 200.000]
+    ];
+    stripeRanges.forEach(([y1,y2])=>{
+      ctx.beginPath();
+      ctx.moveTo(0,y1);
+      ctx.lineTo(0,y2);
+      ctx.stroke();
+    });
+    ctx.restore();
+    if(selected && selected.type==='feet' && selected.id===f.id) drawSelection(f.x,f.y,f.rot,48);
+    return;
+  }
 
   let soleFill = '#ffffff';
   if(f.color==='gray') soleFill = '#9a9a9a';
@@ -1150,8 +1185,27 @@ function flashStatus(msg){
   statusTimeout = setTimeout(()=>{ statusEl.style.opacity = 0; }, 1200);
 }
 
+// --- Gemeinsame Hilfsfunktionen für Dialog-/Overlay-Fenster ---
+// Fasst das wiederkehrende Muster "Vollbild-Hintergrund + weiße Dialog-Karte" zusammen,
+// das vorher an über 20 Stellen einzeln wiederholt wurde. Jede Aufrufstelle übergibt
+// weiterhin ihr eigenes exaktes CSS, damit sich am sichtbaren Aussehen nichts ändert.
+function createOverlay(cssText){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = cssText;
+  return overlay;
+}
+function createBox(overlay, cssText){
+  const box = document.createElement('div');
+  box.style.cssText = cssText;
+  overlay.appendChild(box);
+  return box;
+}
+
 // --- Bearbeitungsmodus ---
 function isLocked(foot){
+  if(foot.anchor) return true; // Anker-Füße (aus vorherigem Bild übernommen) sind IMMER gesperrt,
+                                // damit sie nicht versehentlich verschoben werden und die
+                                // Anschluss-Position zum vorherigen Bild verlieren.
   if(!editMode) return false;
   if(foot.color === 'white') return true;
   if(foot.color === 'black') return !blackFeetUnlocked;
@@ -1439,22 +1493,8 @@ function executeMerge(){
 }
 
 function showConfirm(message, onYes, yesLabel, onNo){
-  const overlay = document.createElement('div');
-  overlay.style.position = 'fixed';
-  overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0; overlay.style.bottom = 0;
-  overlay.style.background = 'rgba(0,0,0,0.35)';
-  overlay.style.zIndex = 2000;
-  overlay.style.display = 'flex';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-
-  const box = document.createElement('div');
-  box.style.background = '#fff';
-  box.style.borderRadius = '12px';
-  box.style.padding = '18px';
-  box.style.maxWidth = '260px';
-  box.style.textAlign = 'center';
-  box.style.boxShadow = '0 4px 18px rgba(0,0,0,0.25)';
+  const overlay = createOverlay('position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:2000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:12px;padding:18px;max-width:260px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,0.25);');
 
   const text = document.createElement('p');
   text.textContent = message;
@@ -1495,21 +1535,8 @@ function showConfirm(message, onYes, yesLabel, onNo){
 }
 
 function showLRPicker(onPick){
-  const overlay = document.createElement('div');
-  overlay.style.position = 'fixed';
-  overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0; overlay.style.bottom = 0;
-  overlay.style.background = 'rgba(0,0,0,0.35)';
-  overlay.style.zIndex = 2000;
-  overlay.style.display = 'flex';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-
-  const box = document.createElement('div');
-  box.style.background = '#fff';
-  box.style.borderRadius = '14px';
-  box.style.padding = '18px 24px';
-  box.style.textAlign = 'center';
-  box.style.boxShadow = '0 4px 18px rgba(0,0,0,0.25)';
+  const overlay = createOverlay('position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:2000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:18px 24px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,0.25);');
 
   const label = document.createElement('p');
   label.textContent = 'Links oder Rechts?';
@@ -1584,17 +1611,7 @@ function showLabelInput(pos){
 }
 
 function showImageOverlay(dataUrl){
-  const overlay = document.createElement('div');
-  overlay.style.position = 'fixed';
-  overlay.style.left = 0; overlay.style.top = 0; overlay.style.right = 0; overlay.style.bottom = 0;
-  overlay.style.background = 'rgba(0,0,0,0.7)';
-  overlay.style.zIndex = 2000;
-  overlay.style.display = 'flex';
-  overlay.style.flexDirection = 'column';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-  overlay.style.padding = '16px';
-  overlay.style.gap = '12px';
+  const overlay = createOverlay('position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px;');
 
   const hint = document.createElement('p');
   hint.textContent = 'Bild antippen und halten, um es zu speichern. Falls das nicht funktioniert: einfach einen Screenshot davon machen.';
@@ -1641,8 +1658,23 @@ function setTool(tool){
 
 document.querySelectorAll('[data-tool]').forEach(b=>{
   b.addEventListener('click', ()=>{
-    if(b.dataset.pencolor) currentPenColor = b.dataset.pencolor;
-    setTool(b.dataset.tool);
+    const tool = b.dataset.tool;
+    const pencolor = b.dataset.pencolor;
+    // bg-pan hat eigene, separate Umschalt-Logik (an anderer Stelle) und wird hier ausgenommen
+    if(tool === 'bg-pan'){
+      if(pencolor) currentPenColor = pencolor;
+      setTool(tool);
+      return;
+    }
+    const isSameAsActive = (currentTool === tool) && (tool !== 'pen' || currentPenColor === pencolor);
+    if(isSameAsActive){
+      // Erneutes Antippen des bereits aktiven Werkzeugs -> ausschalten.
+      // Im Leerlauf-Modus verschiebt ein Finger die Zeichenfläche (wie Pan).
+      setTool('idle');
+      return;
+    }
+    if(pencolor) currentPenColor = pencolor;
+    setTool(tool);
   });
 });
 
@@ -1655,11 +1687,24 @@ document.getElementById('b-new-image').addEventListener('click', ()=>{
     const lastTwo = blackFeet.slice(-2);
     pushHistory();
     if(stateHasContent(state)){ project.sequences.push(JSON.parse(JSON.stringify(state))); }
-    // Koordinaten EXAKT übernehmen – nur so stimmt das Gesamtbild!
-    // Die Ansicht wird danach auf die neuen Füße zentriert (centerOnContent).
-    const carried = lastTwo.map(f=>({id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}));
+    // Startfüße immer in die Bildschirmmitte setzen (alte Koordinaten könnten außerhalb sein)
+    const cx = (wrap.clientWidth || window.innerWidth) / 2;
+    const cy = (wrap.clientHeight || (window.innerHeight - 160)) / 2;
+    let carried;
+    if(lastTwo.length === 2){
+      const midX = (lastTwo[0].x + lastTwo[1].x) / 2;
+      const midY = (lastTwo[0].y + lastTwo[1].y) / 2;
+      const dx = cx - midX;
+      const dy = cy - midY;
+      carried = lastTwo.map(f=>({id:newId(), x:f.x+dx, y:f.y+dy, rot:f.rot, color:'white', anchor:true}));
+    } else if(lastTwo.length === 1){
+      carried = [{id:newId(), x:cx, y:cy, rot:lastTwo[0].rot, color:'white', anchor:true}];
+    } else {
+      carried = [];
+    }
     state = { feet: carried, bodies: [], labels: [], strokes: [] };
-    centerOnContent();
+    viewScale = 1.0;
+    viewOffset = { x: 0, y: 0 };
     updateSeqCount();
     draw(); saveState();
   }, 'Ja, neues Bild');
@@ -1754,6 +1799,13 @@ let bgPinchCenter = null;
 let bgPinchOffsetStart = null;
 let bgPinchScaleStart = null;
 
+// Zwei-Finger-Pinch/Pan für die Zeichenfläche selbst (unabhängig vom aktiven Werkzeug,
+// außer der Hintergrundbild-Verschiebemodus "bg-pan" ist aktiv)
+let viewPinchDist = null;
+let viewPinchCenter = null;
+let viewPinchOffsetStart = null;
+let viewPinchScaleStart = null;
+
 function bgTouchStart(e){
   if(!bgImage || e.touches.length !== 2) return false;
   const t1 = e.touches[0], t2 = e.touches[1];
@@ -1796,6 +1848,69 @@ function bgTouchMove(e){
 function bgTouchEnd(){
   bgPinchDist = null;
   bgPinchCenter = null;
+}
+
+// --- Zwei-Finger-Pinch/Pan für die Zeichenfläche ---
+function viewTouchStart(e){
+  if(e.touches.length !== 2) return false;
+  const t1 = e.touches[0], t2 = e.touches[1];
+  viewPinchDist = Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY);
+  viewPinchCenter = { x: (t1.clientX+t2.clientX)/2, y: (t1.clientY+t2.clientY)/2 };
+  viewPinchOffsetStart = {...viewOffset};
+  viewPinchScaleStart = viewScale;
+  return true;
+}
+
+function viewTouchMove(e){
+  if(!viewPinchDist || e.touches.length !== 2) return false;
+  const t1 = e.touches[0], t2 = e.touches[1];
+  const newDist = Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY);
+  const newCenter = { x: (t1.clientX+t2.clientX)/2, y: (t1.clientY+t2.clientY)/2 };
+  const ratio = newDist / viewPinchDist;
+  const newScale = Math.min(3, Math.max(0.4, viewPinchScaleStart * ratio));
+
+  const rect = canvas.getBoundingClientRect();
+  // Logische Position, die zu Beginn unter dem Pinch-Zentrum lag
+  const logCx = (viewPinchCenter.x - rect.left) / viewPinchScaleStart + viewPinchOffsetStart.x;
+  const logCy = (viewPinchCenter.y - rect.top) / viewPinchScaleStart + viewPinchOffsetStart.y;
+
+  viewScale = newScale;
+  // Diese logische Position wieder unter das (verschobene) Pinch-Zentrum bringen
+  viewOffset.x = logCx - (newCenter.x - rect.left) / viewScale;
+  viewOffset.y = logCy - (newCenter.y - rect.top) / viewScale;
+  draw();
+  return true;
+}
+
+function viewTouchEnd(){
+  viewPinchDist = null;
+  viewPinchCenter = null;
+}
+
+// --- Maus/Trackpad: Strg+Mausrad = Zoom, sonst Mausrad = Verschieben ---
+let wheelSaveTimeout = null;
+function handleWheel(e){
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  if(e.ctrlKey || e.metaKey){
+    // Zoom um Mausposition (funktioniert identisch für Trackpad-Kneifen, das der Browser
+    // automatisch als Strg+Mausrad-Ereignis meldet)
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const logX = mx/viewScale + viewOffset.x;
+    const logY = my/viewScale + viewOffset.y;
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    viewScale = Math.min(3, Math.max(0.4, viewScale * factor));
+    viewOffset.x = logX - mx/viewScale;
+    viewOffset.y = logY - my/viewScale;
+  } else {
+    // Verschieben (Mausrad oder Trackpad-Zwei-Finger-Wisch ohne Kneifen)
+    viewOffset.x += e.deltaX / viewScale;
+    viewOffset.y += e.deltaY / viewScale;
+  }
+  draw();
+  // Erst kurz nach Ende der Geste speichern, nicht bei jedem einzelnen Rad-Tick
+  clearTimeout(wheelSaveTimeout);
+  wheelSaveTimeout = setTimeout(()=> saveState(), 400);
 }
 
 // Konstanter Maßstab (Pixel pro logischer Einheit) – fester Wert => alles immer gleich groß skaliert
@@ -1930,10 +2045,8 @@ function showStorageTargetDialog(exportType){
   const { data, fname } = buildExportPayload(exportType);
   const text = JSON.stringify(data);
 
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;';
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
 
   const title = document.createElement('p');
   title.textContent = 'Wo soll gespeichert werden?';
@@ -2039,10 +2152,8 @@ async function cloudSaveFlow(provider, fname, text){
 
 function exportProjectData(){
   // Auswahl-Dialog: Aktuelles Projekt oder Alle Projekte
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;';
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
 
   const title = document.createElement('p');
   title.textContent = 'Was soll gespeichert werden?';
@@ -2145,15 +2256,20 @@ function importProjectDataFromText(text){
 
 function hitTest(pos){
   const r = 18;
+  const rStripes = 48; // Streifen-Symbol ist höher, braucht größeren Treffbereich
   for(let i=state.feet.length-1;i>=0;i--){
     const f = state.feet[i];
+    const rr = (f.color === 'stripes') ? rStripes : r;
     if(isLocked(f)){
       if(editMode && f.color === 'black' && !blackFeetUnlocked){
-        if(Math.hypot(f.x-pos.x,f.y-pos.y) < r){ showBlackFootUnlockWarning(); return null; }
+        if(Math.hypot(f.x-pos.x,f.y-pos.y) < rr){ showBlackFootUnlockWarning(); return null; }
+      } else if(f.anchor && Math.hypot(f.x-pos.x,f.y-pos.y) < rr){
+        flashStatus('Anker-Fuß gesperrt (Anschluss zum vorherigen Bild)');
+        return null;
       }
       continue;
     }
-    if(Math.hypot(f.x-pos.x,f.y-pos.y) < r) return {type:'feet', id:f.id};
+    if(Math.hypot(f.x-pos.x,f.y-pos.y) < rr) return {type:'feet', id:f.id};
   }
   for(let i=state.bodies.length-1;i>=0;i--){
     const b = state.bodies[i];
@@ -2181,8 +2297,33 @@ function getItem(sel){
   return state[sel.type].find(it=>it.id===sel.id);
 }
 
+// Löscht das aktuell ausgewählte Symbol (z.B. über die Entf-Taste).
+// Nutzt dieselbe Logik wie der Radierer, inkl. Entfernen verknüpfter Pfeil-Nummern.
+function deleteSelected(){
+  if(!selected) return;
+  pushHistory();
+  if(selected.type==='strokes'){
+    const strokeObj = state.strokes.find(s=>s.id===selected.id);
+    if(strokeObj && strokeObj.numberLabelId){
+      state.labels = state.labels.filter(l=>l.id!==strokeObj.numberLabelId);
+    }
+  }
+  state[selected.type] = state[selected.type].filter(it=>it.id!==selected.id);
+  selected = null;
+  draw();
+  saveState();
+}
+
 function pointerDown(e){
   e.preventDefault();
+
+  if(spacePanActive){
+    // Leertaste gedrückt: immer verschieben, unabhängig vom aktiven Werkzeug
+    panStart = getClientXY(e);
+    panDownPos = {...panStart};
+    panMoved = false;
+    return;
+  }
 
   if(currentTool==='pan' || currentTool==='bg-pan'){
     panStart = getClientXY(e);
@@ -2272,11 +2413,12 @@ function pointerDown(e){
     }
     return;
   }
-  if(currentTool==='move'){
+  if(currentTool==='move' || currentTool==='idle'){
     if(selected){
       const item = getItem(selected);
       if(item && item.rot!==undefined){
-        const h = handlePos(item.x,item.y,item.rot, (selected.type==='feet'?26:26)+14);
+        const selRadius = (selected.type==='feet' && item.color==='stripes') ? 48 : 26;
+        const h = handlePos(item.x,item.y,item.rot, selRadius+14);
         if(Math.hypot(h.x-pos.x,h.y-pos.y) < 12){
           dragMode = 'rotate';
           pushHistory();
@@ -2285,21 +2427,38 @@ function pointerDown(e){
       }
     }
     const hit = hitTest(pos);
-    selected = hit;
     if(hit){
-      const item = getItem(hit);
-      dragMode = 'move';
-      dragOffset = { x: pos.x - item.x, y: pos.y - item.y };
-      pushHistory();
+      const isSameAsSelected = selected && selected.type===hit.type && selected.id===hit.id;
+      if(isSameAsSelected){
+        // Bereits ausgewähltes Symbol erneut anfassen -> sofort verschiebbar
+        const item = getItem(hit);
+        dragMode = 'move';
+        dragOffset = { x: pos.x - item.x, y: pos.y - item.y };
+        pushHistory();
+      } else {
+        // Neues/anderes Symbol antippen -> nur auswählen, in dieser Geste NICHT verschieben
+        selected = hit;
+        dragMode = null;
+      }
+    } else {
+      // Leere Fläche: Pan-Geste beginnen. Auswahl bleibt vorerst bestehen -
+      // wird nur bei echtem Tippen ohne Ziehen aufgehoben (siehe pointerUp)
+      panStart = getClientXY(e);
+      panDownPos = {...panStart};
+      panMoved = false;
     }
     draw();
   }
 }
 
 function pointerMove(e){
-  if(currentTool==='pan' && panStart){
+  if((spacePanActive || currentTool==='pan' || currentTool==='move' || currentTool==='idle') && panStart){
     e.preventDefault();
     const c = getClientXY(e);
+    if(!panMoved && panDownPos){
+      const d = Math.hypot(c.x-panDownPos.x, c.y-panDownPos.y);
+      if(d > 5) panMoved = true;
+    }
     viewOffset.x -= (c.x - panStart.x)/viewScale;
     viewOffset.y -= (c.y - panStart.y)/viewScale;
     panStart = c;
@@ -2326,7 +2485,7 @@ function pointerMove(e){
     }
     return;
   }
-  if(currentTool==='move' && selected && dragMode){
+  if((currentTool==='move' || currentTool==='idle') && selected && dragMode){
     e.preventDefault();
     const pos = getPos(e);
     const item = getItem(selected);
@@ -2342,8 +2501,27 @@ function pointerMove(e){
 }
 
 function pointerUp(e){
+  if(spacePanActive){
+    if(panStart){ panStart = null; panDownPos = null; saveState(); }
+    return;
+  }
   if(currentTool==='pan' || currentTool==='bg-pan'){
     if(panStart){ panStart = null; saveState(); }
+    return;
+  }
+  if(currentTool==='move' || currentTool==='idle'){
+    if(panStart){
+      if(!panMoved){
+        // Reines Tippen auf leere Fläche (ohne Ziehen) -> Auswahl aufheben
+        selected = null;
+        draw();
+      }
+      panStart = null;
+      panDownPos = null;
+      saveState();
+      return;
+    }
+    if(dragMode){ dragMode = null; saveState(); }
     return;
   }
   if(currentTool==='pen' && currentStroke){
@@ -2384,34 +2562,90 @@ function pointerUp(e){
     }
     return;
   }
-  if(currentTool==='move' && dragMode){
-    dragMode = null;
-    saveState();
-  }
 }
 
 canvas.addEventListener('mousedown', pointerDown);
 canvas.addEventListener('mousemove', pointerMove);
 window.addEventListener('mouseup', pointerUp);
 canvas.addEventListener('touchstart', (e)=>{
-  // Zwei-Finger-Geste: Hintergrundbild zoomen/verschieben
-  if(bgImage && e.touches.length === 2){ bgTouchStart(e); e.preventDefault(); return; }
+  if(e.touches.length === 2){
+    // Zwei-Finger-Geste gehört dem Hintergrundbild NUR, wenn der BG-Verschiebemodus
+    // explizit aktiv ist. Sonst gilt sie immer der Zeichenfläche selbst.
+    if(currentTool === 'bg-pan' && bgImage){ bgTouchStart(e); e.preventDefault(); return; }
+    viewTouchStart(e); e.preventDefault(); return;
+  }
   pointerDown(e);
 }, {passive:false});
 canvas.addEventListener('touchmove', (e)=>{
-  if(bgImage && e.touches.length === 2 && bgPinchDist !== null){ bgTouchMove(e); e.preventDefault(); return; }
+  if(e.touches.length === 2){
+    if(currentTool === 'bg-pan' && bgImage && bgPinchDist !== null){ bgTouchMove(e); e.preventDefault(); return; }
+    if(viewPinchDist !== null){ viewTouchMove(e); e.preventDefault(); return; }
+  }
   pointerMove(e);
 }, {passive:false});
 window.addEventListener('touchend', (e)=>{
+  const wasViewPinching = viewPinchDist !== null;
   bgTouchEnd();
+  viewTouchEnd();
+  if(wasViewPinching) saveState();
   pointerUp(e);
 });
+canvas.addEventListener('wheel', handleWheel, {passive:false});
+
+// Zusätzliches Sicherheitsnetz: manche Browser (v.a. iOS Safari) lassen trotz
+// touch-action:none und user-scalable=no gelegentlich noch eigene Zwei-Finger-Zoom-
+// Gesten auf Seitenebene zu. Das wird hier zusätzlich konsequent unterbunden.
+document.addEventListener('touchmove', (e)=>{
+  if(e.touches && e.touches.length >= 2){ e.preventDefault(); }
+}, {passive:false});
 
 window.addEventListener('resize', resizeCanvas);
 
+// --- Tastatur-Kurzbefehle (nur am Computer relevant, stört Touch-Bedienung nicht) ---
+function isTypingInField(){
+  const el = document.activeElement;
+  if(!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+}
+
+window.addEventListener('keydown', (e)=>{
+  if(isTypingInField()) return; // z.B. während Text-Label-Eingabe nichts abfangen
+
+  if(e.code === 'Space' && !spacePanActive){
+    spacePanActive = true;
+    canvas.style.cursor = 'grab';
+    e.preventDefault();
+    return;
+  }
+  if((e.key === 'Delete' || e.key === 'Backspace') && selected){
+    e.preventDefault();
+    deleteSelected();
+    return;
+  }
+  if(e.key === 'Escape' && selected){
+    selected = null;
+    draw();
+    return;
+  }
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){
+    e.preventDefault();
+    undo();
+    return;
+  }
+});
+
+window.addEventListener('keyup', (e)=>{
+  if(e.code === 'Space'){
+    spacePanActive = false;
+    canvas.style.cursor = '';
+    if(panStart){ panStart = null; panDownPos = null; saveState(); }
+  }
+});
+
+
 function showTextOverlay(text){
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:10px;';
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:10px;');
   const hint = document.createElement('p');
   hint.textContent = 'Projektdaten: markieren, kopieren und sichern (oder mir im Chat schicken).';
   hint.style.cssText = 'color:#fff;font-size:13px;text-align:center;margin:0;max-width:340px;';
@@ -2439,10 +2673,8 @@ function showTextOverlay(text){
 }
 
 function showSequencesOverlay(){
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;';
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#fff;border-radius:12px;padding:14px;max-width:420px;width:92vw;max-height:80vh;overflow:auto;box-shadow:0 4px 18px rgba(0,0,0,0.3);';
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;');
+  const box = createBox(overlay, 'background:#fff;border-radius:12px;padding:14px;max-width:420px;width:92vw;max-height:80vh;overflow:auto;box-shadow:0 4px 18px rgba(0,0,0,0.3);');
   const title = document.createElement('p');
   title.textContent = activeProjectName + ' – Gespeicherte Sequenzen (' + project.sequences.length + ')';
   title.style.cssText = 'margin:0 0 10px;font-size:14px;font-weight:600;';
@@ -2558,21 +2790,30 @@ document.getElementById('b-restart-from-last').addEventListener('click', ()=>{
   }
   showConfirm(
     'Aus der letzten gespeicherten Sequenz neu starten? ' +
-    'Die schwarzen Füße dieser Sequenz werden als weiße Startfüße übernommen. ' +
+    'Die schwarzen Füße dieser Sequenz werden als weiße Startfüße auf die Bildschirmmitte gesetzt. ' +
     'Der aktuelle leere Bildschirm wird dabei ersetzt.',
     ()=>{
       const lastSeq = project.sequences[project.sequences.length - 1];
       const blackFeet = (lastSeq.feet || []).filter(f=>f.color==='black').sort((a,b)=>a.id-b.id);
       const lastTwo = blackFeet.slice(-2);
       pushHistory();
+      const cx = (wrap.clientWidth || window.innerWidth) / 2;
+      const cy = (wrap.clientHeight || (window.innerHeight - 160)) / 2;
       let carried;
-      if(lastTwo.length >= 1){
-        carried = lastTwo.map(f=>({id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}));
+      if(lastTwo.length === 2){
+        const midX = (lastTwo[0].x + lastTwo[1].x) / 2;
+        const midY = (lastTwo[0].y + lastTwo[1].y) / 2;
+        const dx = cx - midX;
+        const dy = cy - midY;
+        carried = lastTwo.map(f=>({id:newId(), x:f.x+dx, y:f.y+dy, rot:f.rot, color:'white', anchor:true}));
+      } else if(lastTwo.length === 1){
+        carried = [{id:newId(), x:cx, y:cy, rot:lastTwo[0].rot, color:'white', anchor:true}];
       } else {
         flashStatus('Letzte Sequenz hat keine schwarzen Füße'); return;
       }
       state = { feet: carried, bodies: [], labels: [], strokes: [] };
-      centerOnContent();
+      viewScale = 1.0;
+      viewOffset = { x: 0, y: 0 };
       updateSeqCount();
       draw(); saveState();
       flashStatus('Neustart aus letzter Sequenz – ' + carried.length + ' Startfuß/-füße geladen');
@@ -2590,10 +2831,8 @@ document.getElementById('file-import').addEventListener('change', (e)=>{
 
 // Auswahl-Dialog: Woher soll geladen werden? (Lokal / OneDrive / pCloud)
 function showImportSourceDialog(){
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;';
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
 
   const title = document.createElement('p');
   title.textContent = 'Woher soll geladen werden?';
@@ -2666,10 +2905,8 @@ async function showCloudFileList(provider){
     else if(provider === 'pcloud'){ files = await pcloudListFiles(); }
     else { files = await onedriveListFiles(); }
 
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;';
-    const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;max-height:70vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+    const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
+    const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;max-height:70vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
 
     const title = document.createElement('p');
     title.textContent = providerLabel + ' – Datei wählen';
@@ -2858,20 +3095,48 @@ function renderStateCanvas(st){
   return off;
 }
 
-function downloadDataUrl(filename, dataUrl){
-  const a = document.createElement('a');
-  a.href = dataUrl; a.download = filename;
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{ if(a.parentNode) a.parentNode.removeChild(a); }, 200);
+// Hinweis: downloadDataUrl ist bereits weiter oben definiert (wird hier mitverwendet)
+
+// Berechnet für jede Sequenz eine Welt-Verschiebung (dx,dy), sodass die weißen
+// Anker-Füße (aus der vorherigen Sequenz übernommen) exakt auf den zugehörigen
+// schwarzen Endfüßen der vorherigen Sequenz liegen. So werden alle Sequenzen zu
+// EINEM durchgängigen Koordinatensystem verkettet - unabhängig davon, dass jede
+// Sequenz beim Erstellen ("Neues Bild"/BK) einzeln auf die Bildschirmmitte
+// zurückgesetzt wurde und daher rein lokal betrachtet keine gemeinsame Basis hat.
+function computeSequenceWorldOffsets(seqs){
+  const offsets = [{dx:0, dy:0}];
+  for(let i=1;i<seqs.length;i++){
+    const prevBlack = seqs[i-1].feet.filter(f=>f.color==='black').sort((a,b)=>a.id-b.id).slice(-2);
+    const curAnchor = seqs[i].feet.filter(f=>f.anchor).sort((a,b)=>a.id-b.id).slice(0,2);
+    const n = Math.min(prevBlack.length, curAnchor.length);
+    if(n > 0){
+      const prevOff = offsets[i-1];
+      let sumDx=0, sumDy=0;
+      for(let k=0;k<n;k++){
+        sumDx += (prevBlack[k].x + prevOff.dx) - curAnchor[k].x;
+        sumDy += (prevBlack[k].y + prevOff.dy) - curAnchor[k].y;
+      }
+      offsets.push({dx: sumDx/n, dy: sumDy/n});
+    } else {
+      // Keine passende Anker-Verbindung gefunden -> eigener, unverbundener Block
+      offsets.push({dx:0, dy:0});
+    }
+  }
+  return offsets;
 }
 
 // --- Gesamtbild: alle Sequenzen als lange, untereinander gestapelte Bahn ---
+// Vertikal werden die Panels einfach nacheinander gestapelt (mit PANEL_GAP).
+// Horizontal folgt jedes Panel der echten Anker-Verkettung (computeSequenceWorldOffsets),
+// damit Endfuß der einen und Startfuß der nächsten Sequenz auf gleicher Höhe liegen.
 function buildGesamtbild(seqs){
   if(!seqs.length) return null;
   const scale = EXPORT_PX_PER_UNIT;
+  const offsets = computeSequenceWorldOffsets(seqs);
   const localBounds = seqs.map(s => computeContentBounds(s));
+  const worldBounds = localBounds.map((b,i)=>({x:b.x+offsets[i].dx, y:b.y+offsets[i].dy, w:b.w, h:b.h}));
   let globalMinX = Infinity, globalMaxX = -Infinity;
-  localBounds.forEach(b=>{ globalMinX = Math.min(globalMinX, b.x); globalMaxX = Math.max(globalMaxX, b.x+b.w); });
+  worldBounds.forEach(b=>{ globalMinX = Math.min(globalMinX, b.x); globalMaxX = Math.max(globalMaxX, b.x+b.w); });
   const frameWUnits = (globalMaxX - globalMinX) + 2*EXPORT_MARGIN;
   const panelHUnits = localBounds.map(b => b.h + 2*EXPORT_MARGIN);
   const totalHUnits = panelHUnits.reduce((a,v)=>a+v,0) + PANEL_GAP*(seqs.length-1);
@@ -2888,9 +3153,10 @@ function buildGesamtbild(seqs){
   let cumY = 0;
   seqs.forEach((s,i)=>{
     const b = localBounds[i];
+    const off = offsets[i];
     longCtx.save();
     longCtx.scale(scale,scale);
-    longCtx.translate(EXPORT_MARGIN - globalMinX, cumY + EXPORT_MARGIN - b.y);
+    longCtx.translate(EXPORT_MARGIN - globalMinX + off.dx, cumY + EXPORT_MARGIN - b.y);
     s.strokes.forEach(drawStroke);
     s.feet.forEach(drawFoot);
     s.bodies.forEach(drawBody);
@@ -2912,10 +3178,12 @@ const MAX_PPTX_CANVAS_H = 1400; // maximale Bildhöhe in Pixel pro Folie
 
 function buildGlobalFrameCanvases(seqs){
   if(!seqs.length) return [];
-  // Globale Bounding-Box über ALLE Sequenzen
+  const offsets = computeSequenceWorldOffsets(seqs);
+  const localBounds = seqs.map(s => computeContentBounds(s));
+  const worldBounds = localBounds.map((b,i)=>({x:b.x+offsets[i].dx, y:b.y+offsets[i].dy, w:b.w, h:b.h}));
+  // Globale Bounding-Box über ALLE Sequenzen, jetzt in echten Welt-Koordinaten
   let gMinX=Infinity, gMinY=Infinity, gMaxX=-Infinity, gMaxY=-Infinity;
-  seqs.forEach(s=>{
-    const b = computeContentBounds(s);
+  worldBounds.forEach(b=>{
     gMinX=Math.min(gMinX,b.x); gMinY=Math.min(gMinY,b.y);
     gMaxX=Math.max(gMaxX,b.x+b.w); gMaxY=Math.max(gMaxY,b.y+b.h);
   });
@@ -2932,7 +3200,7 @@ function buildGlobalFrameCanvases(seqs){
   const pxH = Math.max(1, Math.round(fh*scale));
 
   const savedCtx = ctx, savedSel = selected;
-  const canvases = seqs.map(s=>{
+  const canvases = seqs.map((s,i)=>{
     const off = document.createElement('canvas');
     off.width = pxW;
     off.height = pxH;
@@ -2940,7 +3208,7 @@ function buildGlobalFrameCanvases(seqs){
     offCtx.fillStyle = '#ffffff';
     offCtx.fillRect(0,0,off.width,off.height);
     offCtx.scale(scale,scale);
-    offCtx.translate(EXPORT_MARGIN - gMinX, EXPORT_MARGIN - gMinY);
+    offCtx.translate(EXPORT_MARGIN - gMinX + offsets[i].dx, EXPORT_MARGIN - gMinY + offsets[i].dy);
     ctx = offCtx; selected = null;
     s.strokes.forEach(drawStroke);
     s.feet.forEach(drawFoot);
@@ -2953,9 +3221,8 @@ function buildGlobalFrameCanvases(seqs){
 }
 
 function showProgressOverlay(msg){
-  const ov = document.createElement('div');
+  const ov = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;');
   ov.id = '_progress_ov';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;';
   const spin = document.createElement('div');
   spin.style.cssText = 'width:38px;height:38px;border:4px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;';
   const style = document.createElement('style');
