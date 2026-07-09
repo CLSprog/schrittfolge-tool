@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-00 (09.07.2026) - Erste offizielle Release-Version. Basiert auf v36-15: Anker-Fuesse dauerhaft gesperrt, Gesamtbild/PPTX-Export ueber echte Anker-Verkettung, Datumsstempel bei allen Exporten, Streifen-Symbol, 2-Finger-Gesten, Tastatur-Kurzbefehle, Notfall-Neustart, aufgeraeumter Dialog-Code. Cross-Platform-Kompatibilitaet (Android/iOS/macOS/Windows) geprueft. -->
+<!-- Schrittfolge-Tool F1-01 (09.07.2026) - Wichtige Korrektur: Neues Bild und BK (Notfall-Neustart) uebernehmen Anker-Fuesse jetzt mit EXAKTEN Weltkoordinaten (kein Verschieben mehr zur Bildschirmmitte) - nur die Ansicht zentriert sich per centerOnContent(). Uebernommen aus dem parallelen v37-1-Fix, der in F1-00 versehentlich fehlte. Anker-Sperre und Export-Verkettung (Gesamtbild/PPTX) bleiben zusaetzlich als Sicherheitsnetz fuer aeltere Daten bestehen. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -74,7 +74,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub">Symbole antippen-und-platzieren · mit Stift Pfeile/Drehrichtungen ergänzen <span style="color:#bbb;">· F1-00</span></p>
+    <p class="sub">Symbole antippen-und-platzieren · mit Stift Pfeile/Drehrichtungen ergänzen <span style="color:#bbb;">· F1-01</span></p>
   </header>
 
   <div class="toolbar">
@@ -1687,24 +1687,18 @@ document.getElementById('b-new-image').addEventListener('click', ()=>{
     const lastTwo = blackFeet.slice(-2);
     pushHistory();
     if(stateHasContent(state)){ project.sequences.push(JSON.parse(JSON.stringify(state))); }
-    // Startfüße immer in die Bildschirmmitte setzen (alte Koordinaten könnten außerhalb sein)
-    const cx = (wrap.clientWidth || window.innerWidth) / 2;
-    const cy = (wrap.clientHeight || (window.innerHeight - 160)) / 2;
+    // Anker-Füße behalten ihre EXAKTEN Weltkoordinaten (keine Verschiebung zur
+    // Bildschirmmitte mehr) - so bleiben alle Sequenzen durchgehend im selben
+    // Koordinatensystem verbunden. Nur die Ansicht (Kamera) zentriert sich
+    // anschließend über centerOnContent() auf die neuen Füße.
     let carried;
-    if(lastTwo.length === 2){
-      const midX = (lastTwo[0].x + lastTwo[1].x) / 2;
-      const midY = (lastTwo[0].y + lastTwo[1].y) / 2;
-      const dx = cx - midX;
-      const dy = cy - midY;
-      carried = lastTwo.map(f=>({id:newId(), x:f.x+dx, y:f.y+dy, rot:f.rot, color:'white', anchor:true}));
-    } else if(lastTwo.length === 1){
-      carried = [{id:newId(), x:cx, y:cy, rot:lastTwo[0].rot, color:'white', anchor:true}];
+    if(lastTwo.length >= 1){
+      carried = lastTwo.map(f=>({id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}));
     } else {
       carried = [];
     }
     state = { feet: carried, bodies: [], labels: [], strokes: [] };
-    viewScale = 1.0;
-    viewOffset = { x: 0, y: 0 };
+    centerOnContent();
     updateSeqCount();
     draw(); saveState();
   }, 'Ja, neues Bild');
@@ -2790,30 +2784,24 @@ document.getElementById('b-restart-from-last').addEventListener('click', ()=>{
   }
   showConfirm(
     'Aus der letzten gespeicherten Sequenz neu starten? ' +
-    'Die schwarzen Füße dieser Sequenz werden als weiße Startfüße auf die Bildschirmmitte gesetzt. ' +
+    'Die schwarzen Füße dieser Sequenz werden als weiße Startfüße übernommen. ' +
     'Der aktuelle leere Bildschirm wird dabei ersetzt.',
     ()=>{
       const lastSeq = project.sequences[project.sequences.length - 1];
       const blackFeet = (lastSeq.feet || []).filter(f=>f.color==='black').sort((a,b)=>a.id-b.id);
       const lastTwo = blackFeet.slice(-2);
       pushHistory();
-      const cx = (wrap.clientWidth || window.innerWidth) / 2;
-      const cy = (wrap.clientHeight || (window.innerHeight - 160)) / 2;
+      // Anker-Füße behalten ihre EXAKTEN Weltkoordinaten (keine Verschiebung zur
+      // Bildschirmmitte mehr) - so bleibt der Notfall-Neustart im selben
+      // Koordinatensystem wie alle anderen Sequenzen. Nur die Ansicht zentriert sich.
       let carried;
-      if(lastTwo.length === 2){
-        const midX = (lastTwo[0].x + lastTwo[1].x) / 2;
-        const midY = (lastTwo[0].y + lastTwo[1].y) / 2;
-        const dx = cx - midX;
-        const dy = cy - midY;
-        carried = lastTwo.map(f=>({id:newId(), x:f.x+dx, y:f.y+dy, rot:f.rot, color:'white', anchor:true}));
-      } else if(lastTwo.length === 1){
-        carried = [{id:newId(), x:cx, y:cy, rot:lastTwo[0].rot, color:'white', anchor:true}];
+      if(lastTwo.length >= 1){
+        carried = lastTwo.map(f=>({id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}));
       } else {
         flashStatus('Letzte Sequenz hat keine schwarzen Füße'); return;
       }
       state = { feet: carried, bodies: [], labels: [], strokes: [] };
-      viewScale = 1.0;
-      viewOffset = { x: 0, y: 0 };
+      centerOnContent();
       updateSeqCount();
       draw(); saveState();
       flashStatus('Neustart aus letzter Sequenz – ' + carried.length + ' Startfuß/-füße geladen');
