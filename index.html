@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-01 (09.07.2026) - Wichtige Korrektur: Neues Bild und BK (Notfall-Neustart) uebernehmen Anker-Fuesse jetzt mit EXAKTEN Weltkoordinaten (kein Verschieben mehr zur Bildschirmmitte) - nur die Ansicht zentriert sich per centerOnContent(). Uebernommen aus dem parallelen v37-1-Fix, der in F1-00 versehentlich fehlte. Anker-Sperre und Export-Verkettung (Gesamtbild/PPTX) bleiben zusaetzlich als Sicherheitsnetz fuer aeltere Daten bestehen. -->
+<!-- Schrittfolge-Tool F1-03 (09.07.2026) - Zweite offizielle Release-Version. Zusammenfassung seit F1-01: Anker-Fuesse behalten exakte Weltkoordinaten (kein Verschieben mehr zur Bildschirmmitte), dauerhafte Anker-Sperre, alle Platzier-Werkzeuge schalten nach einer Platzierung automatisch ab und waehlen das gesetzte Symbol sofort aus (direkt verschieb-/drehbar), Durchklicken uebereinanderliegender Symbole (beliebig viele), Antippen+Ziehen bewegt sofort, Text per Doppeltipp nachtraeglich bearbeitbar, new und BK (Notfall-Neustart) zu einem kontextabhaengigen Button vereint, Projekt-Dropdown mit Stift/Papierkorb direkt pro Zeile, Speichern-Buttons neu geordnet und zusammengefasst (Drucker-Button fuer Bild/Schrittfolge/PowerPoint), diverse ungenutzte Buttons ausgeblendet (Code erhalten), zahlreiche Layout-Feinheiten. Cross-Platform (Android/iOS/macOS/Windows) durchgehend geprueft. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -56,7 +56,8 @@
   .sw-gray{background:var(--gray);}
   .sw-black{background:var(--dark);}
   .sw-body{background:linear-gradient(to bottom, #eaf4fc 50%, #6fa8dc 50%);border-color:#4f8fcf;border-radius:50%;width:16px;height:16px;}
-  .canvas-wrap{flex:1;overflow:auto;background:var(--bg);-webkit-overflow-scrolling:touch;touch-action:none;}
+  .canvas-wrap{flex:1;overflow:auto;background:var(--bg);-webkit-overflow-scrolling:touch;touch-action:none;position:relative;}
+  .bg-float-btn{background:#fff;border:1px solid var(--border);border-radius:8px;width:38px;height:38px;box-shadow:0 2px 6px rgba(0,0,0,0.15);}
   #c{display:block;background:var(--paper);touch-action:none;}
   footer{padding:6px 12px 10px;background:var(--paper);border-top:1px solid var(--border);font-size:11px;color:#888;display:flex;justify-content:space-between;align-items:center;}
   #status{transition:opacity 0.4s;opacity:0;}
@@ -74,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub">Symbole antippen-und-platzieren · mit Stift Pfeile/Drehrichtungen ergänzen <span style="color:#bbb;">· F1-01</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-03</span></p>
   </header>
 
   <div class="toolbar">
@@ -181,7 +182,14 @@
         </svg>
       </button>
       <button id="t-label" data-tool="label" title="Text"><span class="icon-char" style="font-weight:700;font-size:13px;letter-spacing:0.5px;">ABC</span></button>
-      <button id="t-move" data-tool="move" title="Verschieben/Drehen"><span class="icon-char">✥</span></button>
+    </div>
+    <div class="group">
+      <!-- "Verschieben/Drehen" (t-move) ist seit F1-02 ausgeblendet: die App startet
+           bereits im selben Modus (currentTool='move'), und nach jedem Platzieren
+           kehrt sie automatisch dorthin zurück (idle = funktional identisch).
+           Der Code (setTool, Klick-Handler) ist unverändert vorhanden - bei Bedarf
+           reicht es, "display:none" unten zu entfernen, um den Button zu reaktivieren. -->
+      <button id="t-move" data-tool="move" title="Verschieben/Drehen" style="display:none;"><span class="icon-char">✥</span></button>
       <button id="t-erase" data-tool="erase" title="Radierer">
         <svg viewBox="0 0 40 40" width="22" height="22">
           <g transform="rotate(-25 20 20)">
@@ -193,40 +201,74 @@
       <button id="b-undo" title="Rückgängig"><span class="icon-char">↶</span></button>
     </div>
     <div class="group">
-      <button id="t-pan" data-tool="pan" class="secondary-tool" title="Pan (jetzt auch: leere Fläche ziehen, oder zwei Finger)"><span class="icon-char">✋</span></button>
-      <button id="b-zoom-out" class="secondary-tool" title="Zoom verkleinern (jetzt auch: zwei Finger, Strg+Mausrad)"><span class="icon-char">🔍−</span></button>
-      <button id="b-zoom-in" class="secondary-tool" title="Zoom vergrößern (jetzt auch: zwei Finger, Strg+Mausrad)"><span class="icon-char">🔍+</span></button>
-      <button id="b-new-image" title="Neues Bild"><span class="icon-char" style="font-weight:700;font-size:10px;letter-spacing:0.3px;">new</span></button>
-      <button id="b-export" title="Speichern"><span class="icon-char">💾</span></button>
-      <button id="b-clear" title="Alles löschen"><span class="icon-char">🗑️</span></button>
+      <!-- Pan (t-pan) und Zoom-Buttons sind seit F1-02 ausgeblendet: leere Fläche
+           ziehen (1 Finger), 2-Finger-Geste (Touch) und Strg+Mausrad (Computer)
+           decken dieselbe Funktion bereits vollständig ab. Der Code (setZoom,
+           die 'pan'-Logik in pointerDown) ist unverändert vorhanden - bei Bedarf
+           reicht es, "display:none" unten zu entfernen, um die Buttons zu reaktivieren. -->
+      <button id="t-pan" data-tool="pan" class="secondary-tool" title="Pan (jetzt auch: leere Fläche ziehen, oder zwei Finger)" style="display:none;"><span class="icon-char">✋</span></button>
+      <button id="b-zoom-out" class="secondary-tool" title="Zoom verkleinern (jetzt auch: zwei Finger, Strg+Mausrad)" style="display:none;"><span class="icon-char">🔍−</span></button>
+      <button id="b-zoom-in" class="secondary-tool" title="Zoom vergrößern (jetzt auch: zwei Finger, Strg+Mausrad)" style="display:none;"><span class="icon-char">🔍+</span></button>
+      <!-- Reihenfolge seit F1-02.15: Laden, Speichern, Drucker | new, Sequenzen | Löschen.
+           Die drei .group-Bloecke erzeugen automatisch sichtbare Trennstriche
+           zwischen Drucker/new und zwischen Sequenzen/Löschen (siehe .group + .group CSS). -->
+      <button id="b-data-import" title="Projektdaten laden (Datei)"><span class="icon-char">📂</span></button>
+      <button id="b-data-export" title="Speichern (Aktuelles Projekt / Alle Projekte)"><span class="icon-char">💾</span></button>
+      <!-- b-export, b-gesamtbild, b-pptx sind seit F1-02.14 ausgeblendet: ihre
+           Funktion lebt vollständig im neuen zusammengefassten "🖨️"-Button
+           (b-print) weiter, der eine Auswahl zwischen den dreien zeigt.
+           Code bleibt unveraendert vorhanden und funktionsfaehig. -->
+      <button id="b-export" title="Speichern" style="display:none;"><span class="icon-char">💾</span></button>
+      <button id="b-print" title="Bild/Schrittfolge/PowerPoint speichern"><span class="icon-char">🖨️</span></button>
     </div>
     <div class="group">
+      <button id="b-new-image" title="Neues Bild"><span class="icon-char" style="font-weight:700;font-size:10px;letter-spacing:0.3px;">new</span></button>
       <button id="b-seqs" title="Gespeicherte Sequenzen"><span class="icon-char">📚</span><span id="seq-count" style="font-size:11px;font-weight:600;">0</span></button>
-      <button id="b-restart-from-last" title="Aus letzter gespeicherter Sequenz neu starten (Notfall-Funktion)" style="background:#fff8dd;color:#885500;border:1px solid #ccaa44;border-radius:8px;font-size:10px;font-weight:700;padding:3px 7px;">↩️ BK</button>
-      <button id="b-data-export" title="Projektdaten sichern (Datei)"><span class="icon-char">📦</span></button>
-      <button id="b-data-import" title="Projektdaten laden (Datei)"><span class="icon-char">📂</span></button>
-      <button id="b-gesamtbild" title="Gesamtbild erzeugen (alle Sequenzen als lange Bahn)"><span class="icon-char" style="font-size:10px;font-weight:700;letter-spacing:0.2px;">Bahn</span></button>
-      <button id="b-pptx" title="PowerPoint erzeugen (alle Sequenzen als Folien)"><span class="icon-char" style="font-size:10px;font-weight:700;letter-spacing:0.2px;">PPT</span></button>
+      <!-- "↩️ BK" (Notfall-Neustart) ist seit F1-02.8 ausgeblendet: die Funktion
+           lebt vollständig im "new"-Button weiter (automatisch bei leerem
+           Bildschirm, als Wahlmöglichkeit "Verwerfen" bei vorhandenem Inhalt).
+           Der Code (Klick-Handler weiter unten) ist unverändert vorhanden. -->
+      <button id="b-restart-from-last" title="Aus letzter gespeicherter Sequenz neu starten (Notfall-Funktion)" style="display:none;background:#fff8dd;color:#885500;border:1px solid #ccaa44;border-radius:8px;font-size:10px;font-weight:700;padding:3px 7px;">↩️ BK</button>
+      <!-- b-gesamtbild, b-pptx sind seit F1-02.14 ausgeblendet (siehe b-print oben) -->
+      <button id="b-gesamtbild" title="Gesamtbild erzeugen (alle Sequenzen als lange Bahn)" style="display:none;"><span class="icon-char" style="font-size:10px;font-weight:700;letter-spacing:0.2px;">Bahn</span></button>
+      <button id="b-pptx" title="PowerPoint erzeugen (alle Sequenzen als Folien)" style="display:none;"><span class="icon-char" style="font-size:10px;font-weight:700;letter-spacing:0.2px;">PPT</span></button>
     </div>
-  </div>
-  <div class="toolbar" style="border-top:1px solid var(--border);">
-    <div class="group" style="border-left:none;padding-left:0;margin-left:0;">
-      <span style="font-size:11px;color:#888;padding:0 4px;">🖼️ Hintergrund:</span>
-      <button id="b-bg-load" title="Hintergrundbild laden (temporär)"><span class="icon-char">📷</span><span style="font-size:10px;font-weight:600;">laden</span></button>
-      <button id="b-bg-clear" title="Hintergrundbild entfernen" style="display:none;color:#c00;"><span class="icon-char">🗑️</span><span style="font-size:10px;">entfernen</span></button>
-      <button id="b-bg-pan" data-tool="bg-pan" title="Hintergrundbild verschieben" style="display:none;"><span class="icon-char">✋</span><span style="font-size:10px;">BG</span></button>
-      <button id="b-bg-zoom-in" title="Hintergrundbild vergrößern" style="display:none;"><span class="icon-char">＋</span></button>
-      <button id="b-bg-zoom-out" title="Hintergrundbild verkleinern" style="display:none;"><span class="icon-char">－</span></button>
+    <div class="group">
+      <button id="b-clear" title="Alles löschen"><span class="icon-char">🗑️</span></button>
     </div>
   </div>
   <input type="file" id="bg-file-input" accept="image/*" style="display:none">
   <div class="toolbar" style="border-top:1px solid var(--border);">
     <div class="group" style="border-left:none;padding-left:0;margin-left:0;flex:1;">
       <span class="icon-char" style="font-size:14px;">🗂️</span>
-      <select id="project-select" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:9px;padding:6px 8px;font-size:13px;background:var(--paper);color:var(--ink);min-height:34px;"></select>
-      <button id="b-project-new" title="Neues Projekt"><span class="icon-char">➕</span></button>
-      <button id="b-project-rename" title="Projekt umbenennen"><span class="icon-char">✏️</span></button>
-      <button id="b-project-delete" title="Projekt löschen"><span class="icon-char">🗑️</span></button>
+      <!-- Natives Dropdown + feste Buttons seit F1-02.11 ausgeblendet: ersetzt durch
+           eine eigene aufklappende Liste (project-dropdown-*), die Stift/Papierkorb
+           direkt in jeder Zeile zeigt. Ein natives <select> kann das technisch nicht
+           (Browser-Einschränkung: keine eigenen Elemente in <option>). Code bleibt
+           vollständig erhalten und funktionsfähig. -->
+      <select id="project-select" style="display:none;flex:1;min-width:0;border:1px solid var(--border);border-radius:9px;padding:6px 8px;font-size:13px;background:var(--paper);color:var(--ink);min-height:34px;"></select>
+      <button id="b-project-new" title="Neues Projekt" style="display:none;"><span class="icon-char">➕</span></button>
+      <button id="b-project-rename" title="Projekt umbenennen" style="display:none;"><span class="icon-char">✏️</span></button>
+      <button id="b-project-delete" title="Projekt löschen" style="display:none;"><span class="icon-char">🗑️</span></button>
+
+      <div style="position:relative;flex:1;min-width:0;">
+        <button id="project-dropdown-trigger" style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid var(--border);border-radius:9px;padding:6px 10px;font-size:13px;background:var(--paper);color:var(--ink);min-height:34px;">
+          <span id="project-dropdown-current" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <span style="opacity:1;flex-shrink:0;font-size:22px;line-height:1;font-weight:700;">▾</span>
+        </button>
+        <div id="project-dropdown-panel" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,0.2);z-index:80;max-height:50vh;overflow-y:auto;"></div>
+      </div>
+
+      <!-- Bild-laden-Button (früher eigene Zeile "Hintergrund", seit F1-02.13
+           kompakt rechts in derselben Zeile wie die Projekt-Auswahl). -->
+      <button id="b-bg-load" title="Bild laden (temporär)" style="flex-shrink:0;"><span class="icon-char">🖼️</span><span style="font-size:10px;font-weight:600;">Bild Laden</span></button>
+      <!-- Plus/Minus-Zoom fürs Hintergrundbild sind seit F1-02.9 dauerhaft
+           ausgeblendet: 2-Finger-Pinch (bgTouchStart/bgTouchMove) deckt das
+           bereits vollständig ab. Der Code bleibt unverändert vorhanden -
+           siehe auch bgUpdateButtons(), die diese beiden Buttons absichtlich
+           nicht mehr einblendet. -->
+      <button id="b-bg-zoom-in" title="Hintergrundbild vergrößern" style="display:none;"><span class="icon-char">＋</span></button>
+      <button id="b-bg-zoom-out" title="Hintergrundbild verkleinern" style="display:none;"><span class="icon-char">－</span></button>
     </div>
   </div>
   <input type="file" id="file-import" accept="application/json,.json,text/plain,*/*" style="display:none">
@@ -246,6 +288,14 @@
   </div>
   <div class="canvas-wrap" id="wrap">
     <canvas id="c"></canvas>
+    <!-- Schwebende Hintergrundbild-Buttons (Entfernen, Verschieben) - erscheinen
+         nur oben rechts über der Zeichenfläche, solange ein Hintergrundbild
+         geladen ist. Sichtbarkeit weiterhin über bgUpdateButtons() gesteuert,
+         nur der Ort hat sich geändert (vorher: Werkzeugleiste oben). -->
+    <div id="bg-float-buttons" style="position:absolute;top:8px;right:8px;z-index:50;display:flex;gap:6px;">
+      <button id="b-bg-pan" class="bg-float-btn" data-tool="bg-pan" title="Hintergrundbild verschieben" style="display:none;"><span class="icon-char">✋</span></button>
+      <button id="b-bg-clear" class="bg-float-btn" title="Hintergrundbild entfernen" style="display:none;color:#c00;"><span class="icon-char">🗑️</span></button>
+    </div>
   </div>
 
   <footer>
@@ -604,6 +654,11 @@ let panStart = null;
 let panDownPos = null; // feste Ausgangsposition der aktuellen Pan-Geste (für Tipp-vs-Ziehen-Erkennung)
 let panMoved = false;  // true, sobald die Bewegung die Toleranzschwelle überschritten hat
 let spacePanActive = false; // true, solange die Leertaste gedrückt gehalten wird (Temporäres Pan)
+let pendingTap = null; // { hit, downPos, isSameAsSelected } - Entscheidung "Tippen oder Ziehen" ist noch offen
+let lastTapInfo = null; // { type, id, time } - für Doppel-Tipp-Erkennung (Text bearbeiten)
+const DOUBLE_TAP_MS = 400;
+let pendingLabelPos = null; // Position für Text-Eingabe, wird erst bei pointerUp ausgelöst (iOS-Tastatur-Fix)
+let labelInputOpen = false; // true, solange das schwebende Text-Eingabefeld offen ist - blockiert währenddessen jeden Tipp auf die Zeichenfläche
 
 // Bearbeitungsmodus
 let editMode = false;
@@ -1039,14 +1094,83 @@ function commitActiveProjectState(){
 
 function refreshProjectSelect(){
   const sel = document.getElementById('project-select');
-  if(!sel) return;
-  sel.innerHTML = '';
+  if(sel){
+    sel.innerHTML = '';
+    Object.keys(projects).forEach(name=>{
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      if(name === activeProjectName) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+  renderProjectDropdown();
+}
+
+// Baut die eigene aufklappende Projekt-Liste (Stift/Papierkorb direkt pro Zeile).
+// Ersetzt seit F1-02.11 das native <select>, das so etwas technisch nicht kann.
+function renderProjectDropdown(){
+  const current = document.getElementById('project-dropdown-current');
+  const panel = document.getElementById('project-dropdown-panel');
+  if(!current || !panel) return;
+  current.textContent = activeProjectName || '';
+
+  panel.innerHTML = '';
   Object.keys(projects).forEach(name=>{
-    const opt = document.createElement('option');
-    opt.value = name; opt.textContent = name;
-    if(name === activeProjectName) opt.selected = true;
-    sel.appendChild(opt);
+    const row = document.createElement('div');
+    const isActive = (name === activeProjectName);
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:4px 6px;border-bottom:1px solid #eee;' + (isActive ? 'background:#eef4fb;' : '');
+
+    const nameBtn = document.createElement('button');
+    nameBtn.textContent = name;
+    nameBtn.style.cssText = 'flex:1;min-width:0;display:flex;justify-content:flex-start;text-align:left;background:none;border:none;padding:8px 4px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;' + (isActive ? 'font-weight:700;' : '');
+    nameBtn.addEventListener('click', ()=>{
+      closeProjectDropdown();
+      if(!isActive) switchProject(name);
+    });
+
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '✏️';
+    editBtn.title = 'Umbenennen';
+    editBtn.style.cssText = 'background:none;border:none;font-size:16px;padding:8px;min-width:38px;min-height:38px;cursor:pointer;flex-shrink:0;';
+    editBtn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      closeProjectDropdown();
+      const newName = prompt('Neuer Name für „' + name + '":', name);
+      if(newName && newName.trim()) renameProject(name, newName.trim());
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '🗑️';
+    delBtn.title = 'Löschen';
+    delBtn.style.cssText = 'background:none;border:none;font-size:16px;padding:8px;min-width:38px;min-height:38px;cursor:pointer;flex-shrink:0;';
+    delBtn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      closeProjectDropdown();
+      showConfirm('Projekt „' + name + '" mit allen Sequenzen wirklich löschen?', ()=>deleteProject(name), 'Ja, löschen');
+    });
+
+    row.appendChild(nameBtn);
+    row.appendChild(editBtn);
+    row.appendChild(delBtn);
+    panel.appendChild(row);
   });
+
+  const addRow = document.createElement('button');
+  addRow.textContent = '➕ Neues Projekt';
+  addRow.style.cssText = 'display:flex;justify-content:flex-start;width:100%;box-sizing:border-box;text-align:left;background:none;border:none;padding:10px 8px;font-size:14px;font-weight:600;color:#2f6fb3;cursor:pointer;';
+  addRow.addEventListener('click', ()=>{
+    closeProjectDropdown();
+    const name = prompt('Name des neuen Projekts (z.B. Stockform, Schwertform):');
+    if(name && name.trim()) createProject(name.trim());
+  });
+  panel.appendChild(addRow);
+}
+
+function openProjectDropdown(){
+  document.getElementById('project-dropdown-panel').style.display = 'block';
+}
+function closeProjectDropdown(){
+  document.getElementById('project-dropdown-panel').style.display = 'none';
 }
 
 async function saveState(){
@@ -1095,25 +1219,45 @@ function createProject(name){
 }
 
 function renameActiveProject(newName){
+  return renameProject(activeProjectName, newName);
+}
+
+// Verallgemeinerte Version: kann JEDES Projekt umbenennen, nicht nur das aktive.
+// Wird vom neuen Dropdown-Menü benötigt (Stift-Symbol direkt in jeder Zeile).
+function renameProject(name, newName){
   newName = (newName||'').trim();
-  if(!newName || newName === activeProjectName) return false;
+  if(!newName || newName === name || !projects[name]) return false;
   if(projects[newName]){ flashStatus('Name bereits vergeben'); return false; }
-  commitActiveProjectState();
-  projects[newName] = projects[activeProjectName];
-  delete projects[activeProjectName];
-  activeProjectName = newName;
-  project = projects[newName];
+  if(name === activeProjectName) commitActiveProjectState();
+  projects[newName] = projects[name];
+  delete projects[name];
+  if(name === activeProjectName){
+    activeProjectName = newName;
+    project = projects[newName];
+  }
   refreshProjectSelect();
   saveState();
   return true;
 }
 
 function deleteActiveProject(){
+  deleteProject(activeProjectName);
+}
+
+// Verallgemeinerte Version: kann JEDES Projekt löschen, nicht nur das aktive.
+// Wird vom neuen Dropdown-Menü benötigt (Papierkorb-Symbol direkt in jeder Zeile).
+function deleteProject(name){
   const names = Object.keys(projects);
   if(names.length <= 1){ flashStatus('Letztes Projekt kann nicht gelöscht werden'); return; }
-  delete projects[activeProjectName];
-  const nextName = Object.keys(projects)[0];
-  activateProject(nextName);
+  if(!projects[name]) return;
+  const wasActive = (name === activeProjectName);
+  delete projects[name];
+  if(wasActive){
+    const nextName = Object.keys(projects)[0];
+    activateProject(nextName);
+  } else {
+    refreshProjectSelect();
+  }
   saveState();
 }
 
@@ -1534,6 +1678,38 @@ function showConfirm(message, onYes, yesLabel, onNo){
   document.body.appendChild(overlay);
 }
 
+// Dialog mit drei Optionen für "Neues Bild" bei bereits vorhandenem Inhalt:
+// Speichern (normaler Ablauf) oder Verwerfen+Neustart (vorheriges "BK"-Verhalten)
+// oder Abbrechen. Groß und touch-freundlich (min. 44px Höhe) für Android/iOS/Windows.
+function showNewImageChoiceDialog(onSave, onDiscard){
+  const overlay = createOverlay('position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:2000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:12px;padding:18px;max-width:300px;width:88vw;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,0.25);');
+
+  const text = document.createElement('p');
+  text.textContent = 'Neues Bild starten - was soll mit der aktuellen Sequenz passieren?';
+  text.style.margin = '0 0 14px';
+  text.style.fontSize = '14px';
+  box.appendChild(text);
+
+  function makeBtn(label, bg, color, handler){
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = 'display:block;width:100%;box-sizing:border-box;background:'+bg+';color:'+color+';border:none;border-radius:8px;padding:12px 14px;font-size:14px;font-weight:600;margin-bottom:8px;min-height:44px;cursor:pointer;';
+    b.addEventListener('click', ()=>{ document.body.removeChild(overlay); handler(); });
+    return b;
+  }
+
+  const saveBtn = makeBtn('💾 Speichern und neues Bild', '#2f6fb3', '#fff', onSave);
+  const discardBtn = makeBtn('🗑️ Verwerfen, aus letzter Sequenz neu starten', '#cc1f1f', '#fff', onDiscard);
+  const cancelBtn = makeBtn('Abbrechen', '#eee', '#333', ()=>{});
+  cancelBtn.style.marginBottom = '0';
+
+  box.appendChild(saveBtn);
+  box.appendChild(discardBtn);
+  box.appendChild(cancelBtn);
+  document.body.appendChild(overlay);
+}
+
 function showLRPicker(onPick){
   const overlay = createOverlay('position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:2000;display:flex;align-items:center;justify-content:center;');
   const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:18px 24px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,0.25);');
@@ -1573,11 +1749,14 @@ function showLRPicker(onPick){
   document.body.appendChild(overlay);
 }
 
-function showLabelInput(pos){
+function showLabelInput(pos, existingLabel){
+  labelInputOpen = true;
   const rect = canvas.getBoundingClientRect();
+
   const input = document.createElement('input');
   input.type = 'text';
   input.placeholder = 'z.B. 2RE';
+  if(existingLabel) input.value = existingLabel.text;
   input.style.position = 'fixed';
   input.style.left = (rect.left + (pos.x - viewOffset.x)*viewScale) + 'px';
   input.style.top = (rect.top + (pos.y - viewOffset.y)*viewScale - 14) + 'px';
@@ -1590,23 +1769,52 @@ function showLabelInput(pos){
   input.style.background = '#fff';
   document.body.appendChild(input);
   input.focus();
+  if(existingLabel) input.select(); // bestehenden Text komplett markiert anzeigen, wie bei normaler Textbearbeitung üblich
 
   let done = false;
   function commit(){
     if(done) return;
     done = true;
     const text = input.value.trim();
-    if(text){
+    if(existingLabel){
+      // Bearbeitung eines bestehenden Textes: KEIN neues Element, sondern das
+      // vorhandene aktualisieren (oder entfernen, falls der Text geleert wurde).
       pushHistory();
-      state.labels.push({id:newId(), x:pos.x, y:pos.y, text});
+      if(text){
+        existingLabel.text = text;
+        draw(); saveState();
+        selected = {type:'labels', id: existingLabel.id};
+      } else {
+        state.labels = state.labels.filter(l => l.id !== existingLabel.id);
+        selected = null;
+        draw(); saveState();
+      }
+      if(input.parentNode) input.parentNode.removeChild(input);
+      setTool('idle');
+    } else if(text){
+      pushHistory();
+      const labelId = newId();
+      state.labels.push({id:labelId, x:pos.x, y:pos.y, text});
       draw(); saveState();
+      if(input.parentNode) input.parentNode.removeChild(input);
+      setTool('idle');
+      selected = {type:'labels', id:labelId};
+      draw();
+    } else {
+      if(input.parentNode) input.parentNode.removeChild(input);
+      setTool('idle');
     }
-    if(input.parentNode) input.parentNode.removeChild(input);
+    labelInputOpen = false;
   }
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', (e)=>{
     if(e.key==='Enter'){ e.preventDefault(); input.blur(); }
-    if(e.key==='Escape'){ done=true; if(input.parentNode) input.parentNode.removeChild(input); }
+    if(e.key==='Escape'){
+      done = true;
+      if(input.parentNode) input.parentNode.removeChild(input);
+      setTool('idle');
+      labelInputOpen = false;
+    }
   });
 }
 
@@ -1660,16 +1868,12 @@ document.querySelectorAll('[data-tool]').forEach(b=>{
   b.addEventListener('click', ()=>{
     const tool = b.dataset.tool;
     const pencolor = b.dataset.pencolor;
-    // bg-pan hat eigene, separate Umschalt-Logik (an anderer Stelle) und wird hier ausgenommen
-    if(tool === 'bg-pan'){
-      if(pencolor) currentPenColor = pencolor;
-      setTool(tool);
-      return;
-    }
     const isSameAsActive = (currentTool === tool) && (tool !== 'pen' || currentPenColor === pencolor);
     if(isSameAsActive){
       // Erneutes Antippen des bereits aktiven Werkzeugs -> ausschalten.
-      // Im Leerlauf-Modus verschiebt ein Finger die Zeichenfläche (wie Pan).
+      // Gilt auch für bg-pan (Hintergrund verschieben) - vorher fälschlich
+      // ausgenommen, wodurch es sich nur durch Wahl eines anderen Werkzeugs
+      // beenden ließ.
       setTool('idle');
       return;
     }
@@ -1681,27 +1885,61 @@ document.querySelectorAll('[data-tool]').forEach(b=>{
 document.getElementById('b-undo').addEventListener('click', undo);
 document.getElementById('b-zoom-in').addEventListener('click', ()=> setZoom(viewScale*1.25));
 document.getElementById('b-zoom-out').addEventListener('click', ()=> setZoom(viewScale/1.25));
+// Übernimmt die letzten zwei schwarzen Füße EINER gegebenen Sequenz (oder des
+// aktuellen state) als neue, gesperrte weiße Anker-Füße mit exakten Weltkoordinaten.
+// Gemeinsame Hilfsfunktion für beide Wege des "new"-Buttons (Speichern und Verwerfen).
+function startNewSequenceFrom(feetSource){
+  const blackFeet = (feetSource || []).filter(f=>f.color==='black').sort((a,b)=>a.id-b.id);
+  const lastTwo = blackFeet.slice(-2);
+  const carried = lastTwo.length >= 1
+    ? lastTwo.map(f=>({id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}))
+    : [];
+  state = { feet: carried, bodies: [], labels: [], strokes: [] };
+  centerOnContent();
+  updateSeqCount();
+  draw(); saveState();
+  return carried.length;
+}
+
 document.getElementById('b-new-image').addEventListener('click', ()=>{
-  showConfirm('Neues Bild starten? Die aktuelle Sequenz wird gespeichert; die letzten zwei schwarzen Füße werden als weiße Startposition übernommen.', ()=>{
-    const blackFeet = state.feet.filter(f=>f.color==='black').sort((a,b)=>a.id-b.id);
-    const lastTwo = blackFeet.slice(-2);
-    pushHistory();
-    if(stateHasContent(state)){ project.sequences.push(JSON.parse(JSON.stringify(state))); }
-    // Anker-Füße behalten ihre EXAKTEN Weltkoordinaten (keine Verschiebung zur
-    // Bildschirmmitte mehr) - so bleiben alle Sequenzen durchgehend im selben
-    // Koordinatensystem verbunden. Nur die Ansicht (Kamera) zentriert sich
-    // anschließend über centerOnContent() auf die neuen Füße.
-    let carried;
-    if(lastTwo.length >= 1){
-      carried = lastTwo.map(f=>({id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}));
-    } else {
-      carried = [];
+  const hasContent = stateHasContent(state);
+  const hasPrevSeq = !!(project.sequences && project.sequences.length > 0);
+
+  if(!hasContent){
+    if(!hasPrevSeq){
+      // Fall 1: leerer Bildschirm, allererstes Bild - es gibt nichts zu tun.
+      return;
     }
-    state = { feet: carried, bodies: [], labels: [], strokes: [] };
-    centerOnContent();
-    updateSeqCount();
-    draw(); saveState();
-  }, 'Ja, neues Bild');
+    // Fall 2: leerer Bildschirm, aber es gibt bereits gespeicherte Sequenzen ->
+    // automatisch wie das frühere "BK": Anker-Füße aus der letzten Sequenz holen.
+    // Kein Dialog nötig, da nichts verloren gehen kann.
+    pushHistory();
+    const lastSeq = project.sequences[project.sequences.length - 1];
+    const n = startNewSequenceFrom(lastSeq.feet);
+    flashStatus(n > 0 ? 'Aus letzter gespeicherter Sequenz neu gestartet' : 'Letzte Sequenz hat keine schwarzen Füße');
+    return;
+  }
+
+  // Fall 3: Bildschirm hat Inhalt -> Nutzer entscheiden lassen.
+  showNewImageChoiceDialog(
+    ()=>{
+      // Speichern und neues Bild (normaler Ablauf wie bisher)
+      pushHistory();
+      project.sequences.push(JSON.parse(JSON.stringify(state)));
+      startNewSequenceFrom(state.feet);
+    },
+    ()=>{
+      // Verwerfen, aus letzter gespeicherter Sequenz neu starten (bisheriges "BK")
+      if(!hasPrevSeq){
+        flashStatus('Keine gespeicherten Sequenzen vorhanden');
+        return;
+      }
+      pushHistory();
+      const lastSeq = project.sequences[project.sequences.length - 1];
+      const n = startNewSequenceFrom(lastSeq.feet);
+      flashStatus(n > 0 ? 'Verworfen - aus letzter gespeicherter Sequenz neu gestartet' : 'Letzte Sequenz hat keine schwarzen Füße');
+    }
+  );
 });
 document.getElementById('b-clear').addEventListener('click', ()=>{
   showConfirm('Wirklich alles löschen?', ()=>{
@@ -1715,8 +1953,8 @@ function bgUpdateButtons(){
   const hasBg = !!bgImage;
   document.getElementById('b-bg-clear').style.display = hasBg ? '' : 'none';
   document.getElementById('b-bg-pan').style.display = hasBg ? '' : 'none';
-  document.getElementById('b-bg-zoom-in').style.display = hasBg ? '' : 'none';
-  document.getElementById('b-bg-zoom-out').style.display = hasBg ? '' : 'none';
+  // b-bg-zoom-in/out bleiben absichtlich immer versteckt (siehe Kommentar bei
+  // den Buttons selbst) - 2-Finger-Pinch deckt das bereits ab.
   if(!hasBg && currentTool === 'bg-pan') setTool('move');
 }
 
@@ -1961,7 +2199,7 @@ function downloadText(filename, text, mime){
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
 }
 
-document.getElementById('b-export').addEventListener('click', ()=>{
+function exportCurrentImage(){
   try{
     const off = renderStateCanvas(state);
     const dataUrl = off.toDataURL('image/png');
@@ -1972,7 +2210,8 @@ document.getElementById('b-export').addEventListener('click', ()=>{
   }catch(err){
     flashStatus('Export fehlgeschlagen');
   }
-});
+}
+document.getElementById('b-export').addEventListener('click', exportCurrentImage);
 
 // --- Projektdaten exportieren / importieren ---
 
@@ -2251,18 +2490,14 @@ function importProjectDataFromText(text){
 function hitTest(pos){
   const r = 18;
   const rStripes = 48; // Streifen-Symbol ist höher, braucht größeren Treffbereich
+  // Erste Runde: nach IRGENDEINEM verschiebbaren Symbol suchen, über ALLE Typen
+  // hinweg (Füße, Kopf, Text, Pfeile). Gesperrte Füße werden dabei übersprungen,
+  // OHNE die Suche abzubrechen - sonst wäre ein Symbol, das zufällig genau auf
+  // einem gesperrten Anker-Fuß liegt, nie mehr auswählbar.
   for(let i=state.feet.length-1;i>=0;i--){
     const f = state.feet[i];
+    if(isLocked(f)) continue;
     const rr = (f.color === 'stripes') ? rStripes : r;
-    if(isLocked(f)){
-      if(editMode && f.color === 'black' && !blackFeetUnlocked){
-        if(Math.hypot(f.x-pos.x,f.y-pos.y) < rr){ showBlackFootUnlockWarning(); return null; }
-      } else if(f.anchor && Math.hypot(f.x-pos.x,f.y-pos.y) < rr){
-        flashStatus('Anker-Fuß gesperrt (Anschluss zum vorherigen Bild)');
-        return null;
-      }
-      continue;
-    }
     if(Math.hypot(f.x-pos.x,f.y-pos.y) < rr) return {type:'feet', id:f.id};
   }
   for(let i=state.bodies.length-1;i>=0;i--){
@@ -2283,7 +2518,57 @@ function hitTest(pos){
       if(Math.hypot(p.x-pos.x,p.y-pos.y) < 10) return {type:'strokes', id:s.id};
     }
   }
+  // Nichts Verschiebbares gefunden - erst JETZT prüfen, ob dort ein gesperrter
+  // Fuß liegt, um einen erklärenden Hinweis zu zeigen.
+  for(let i=state.feet.length-1;i>=0;i--){
+    const f = state.feet[i];
+    if(!isLocked(f)) continue;
+    const rr = (f.color === 'stripes') ? rStripes : r;
+    if(Math.hypot(f.x-pos.x,f.y-pos.y) < rr){
+      if(editMode && f.color === 'black' && !blackFeetUnlocked){
+        showBlackFootUnlockWarning();
+      } else if(f.anchor){
+        flashStatus('Anker-Fuß gesperrt (Anschluss zum vorherigen Bild)');
+      }
+      return null;
+    }
+  }
   return null;
+}
+
+// Wie hitTest, aber liefert ALLE Treffer an der Stelle (gleiche Reihenfolge:
+// oberstes zuerst), statt nur das oberste. Wird für das Durchklicken
+// übereinanderliegender Symbole benötigt. Hat bewusst KEINE Nebenwirkungen
+// (keine Sperr-Hinweise) - das bleibt allein Aufgabe von hitTest().
+function hitTestAll(pos){
+  const r = 18;
+  const rStripes = 48;
+  const matches = [];
+  for(let i=state.feet.length-1;i>=0;i--){
+    const f = state.feet[i];
+    if(isLocked(f)) continue;
+    const rr = (f.color === 'stripes') ? rStripes : r;
+    if(Math.hypot(f.x-pos.x,f.y-pos.y) < rr) matches.push({type:'feet', id:f.id});
+  }
+  for(let i=state.bodies.length-1;i>=0;i--){
+    const b = state.bodies[i];
+    if(Math.hypot(b.x-pos.x,b.y-pos.y) < 23) matches.push({type:'bodies', id:b.id});
+  }
+  for(let i=state.labels.length-1;i>=0;i--){
+    const l = state.labels[i];
+    const fontSize = l.isNum ? 20.25 : 14.625;
+    ctx.font = '600 ' + fontSize + 'px sans-serif';
+    const w = ctx.measureText(l.text).width;
+    const half = fontSize*0.45;
+    if(pos.x>l.x-4 && pos.x<l.x+w+4 && pos.y>l.y-half && pos.y<l.y+half) matches.push({type:'labels', id:l.id});
+  }
+  for(let i=state.strokes.length-1;i>=0;i--){
+    const s = state.strokes[i];
+    for(const p of s.points){
+      if(Math.hypot(p.x-pos.x,p.y-pos.y) < 10){ matches.push({type:'strokes', id:s.id}); break; }
+    }
+  }
+  return matches;
 }
 
 function getItem(sel){
@@ -2309,6 +2594,14 @@ function deleteSelected(){
 }
 
 function pointerDown(e){
+  if(labelInputOpen){
+    // Während das schwebende Text-Eingabefeld offen ist, wird JEDER Tipp auf die
+    // Zeichenfläche ignoriert - UND kein preventDefault() aufgerufen, damit der
+    // Browser das Eingabefeld ganz normal den Fokus verlieren lässt (blur), was
+    // die Eingabe wie gewohnt abschließt. Würde man hier preventDefault() aufrufen,
+    // bliebe das Eingabefeld fälschlich für immer im Fokus hängen.
+    return;
+  }
   e.preventDefault();
 
   if(spacePanActive){
@@ -2373,18 +2666,27 @@ function pointerDown(e){
     }
     pushHistory();
     const mark = parts[2] || null;
-    state.feet.push({id:newId(), x:pos.x, y:pos.y, rot:0, color, mark});
+    const newFootId = newId();
+    state.feet.push({id:newFootId, x:pos.x, y:pos.y, rot:0, color, mark});
+    setTool('idle');
+    selected = {type:'feet', id:newFootId};
     draw(); saveState();
     return;
   }
   if(currentTool==='body'){
     pushHistory();
-    state.bodies.push({id:newId(), x:pos.x, y:pos.y, rot:0});
+    const newBodyId = newId();
+    state.bodies.push({id:newBodyId, x:pos.x, y:pos.y, rot:0});
+    setTool('idle');
+    selected = {type:'bodies', id:newBodyId};
     draw(); saveState();
     return;
   }
   if(currentTool==='label'){
-    showLabelInput(pos);
+    // Textfeld erst bei pointerUp erzeugen (nicht sofort) - auf iPhones öffnet
+    // sich die Tastatur zuverlässiger, wenn focus() beim Loslassen statt beim
+    // Aufsetzen des Fingers aufgerufen wird.
+    pendingLabelPos = pos;
     return;
   }
   if(currentTool==='pen'){
@@ -2422,17 +2724,24 @@ function pointerDown(e){
     }
     const hit = hitTest(pos);
     if(hit){
-      const isSameAsSelected = selected && selected.type===hit.type && selected.id===hit.id;
-      if(isSameAsSelected){
-        // Bereits ausgewähltes Symbol erneut anfassen -> sofort verschiebbar
-        const item = getItem(hit);
-        dragMode = 'move';
-        dragOffset = { x: pos.x - item.x, y: pos.y - item.y };
-        pushHistory();
-      } else {
-        // Neues/anderes Symbol antippen -> nur auswählen, in dieser Geste NICHT verschieben
-        selected = hit;
-        dragMode = null;
+      // WICHTIG: Wir prüfen nicht nur, ob das OBERSTE Symbol an dieser Stelle das
+      // ausgewählte ist, sondern ob das ausgewählte Symbol IRGENDWO im Stapel an
+      // dieser Stelle liegt. Sonst würde das Durchklicken bei 3+ übereinanderliegenden
+      // Symbolen immer wieder zum obersten zurückspringen, statt weiter nach unten
+      // zu wandern (hitTest liefert ja immer nur das oberste Symbol).
+      const stackHere = hitTestAll(pos);
+      const isSameAsSelected = selected && stackHere.some(m => m.type===selected.type && m.id===selected.id);
+      const activeHit = isSameAsSelected ? selected : hit;
+      const item = getItem(activeHit);
+      // Entscheidung "Tippen oder Ziehen" wird noch NICHT getroffen - das passiert
+      // erst in pointerMove (sobald tatsächlich gezogen wird) bzw. pointerUp (falls
+      // es bei einem reinen Tipp blieb). So kann "antippen + sofort ziehen" das
+      // Symbol direkt bewegen, während ein reiner Tipp auf ein bereits ausgewähltes
+      // Symbol stattdessen das darunterliegende auswählt.
+      pendingTap = { hit: activeHit, downPos: pos, isSameAsSelected };
+      dragOffset = { x: pos.x - item.x, y: pos.y - item.y };
+      if(!isSameAsSelected){
+        selected = hit; // neues Symbol (oberstes an dieser Stelle) sofort sichtbar auswählen
       }
     } else {
       // Leere Fläche: Pan-Geste beginnen. Auswahl bleibt vorerst bestehen -
@@ -2479,6 +2788,18 @@ function pointerMove(e){
     }
     return;
   }
+  if((currentTool==='move' || currentTool==='idle') && pendingTap && !dragMode){
+    const pos = getPos(e);
+    const d = Math.hypot(pos.x-pendingTap.downPos.x, pos.y-pendingTap.downPos.y);
+    if(d > 5){
+      // Schwelle überschritten -> es war doch ein Ziehen, kein reiner Tipp.
+      // Das getroffene (ggf. gerade erst ausgewählte) Symbol wird jetzt bewegt.
+      pushHistory();
+      dragMode = 'move';
+      selected = pendingTap.hit;
+      pendingTap = null;
+    }
+  }
   if((currentTool==='move' || currentTool==='idle') && selected && dragMode){
     e.preventDefault();
     const pos = getPos(e);
@@ -2503,16 +2824,63 @@ function pointerUp(e){
     if(panStart){ panStart = null; saveState(); }
     return;
   }
+  if(currentTool==='label' && pendingLabelPos){
+    const p = pendingLabelPos;
+    pendingLabelPos = null;
+    showLabelInput(p);
+    return;
+  }
   if(currentTool==='move' || currentTool==='idle'){
     if(panStart){
       if(!panMoved){
-        // Reines Tippen auf leere Fläche (ohne Ziehen) -> Auswahl aufheben
+        // Reines Tippen auf leere Fläche (ohne Ziehen) -> Auswahl aufheben.
+        // KEIN saveState() hier: reines Tippen ändert weder Inhalt noch
+        // Ansicht-Position, ein unnötiger Speichervorgang würde nur den
+        // "Gespeichert"-Hinweis zeigen und dabei sofort einen wichtigeren
+        // Status-Hinweis überschreiben (z.B. "Anker-Fuß gesperrt").
         selected = null;
         draw();
+      } else {
+        // Es wurde tatsächlich geschwenkt -> viewOffset hat sich geändert, das
+        // muss gespeichert werden.
+        saveState();
       }
       panStart = null;
       panDownPos = null;
-      saveState();
+      return;
+    }
+    if(pendingTap){
+      // Es wurde nicht gezogen (siehe pointerMove) - reiner Tipp.
+      const hit = pendingTap.hit;
+
+      // Doppel-Tipp-Erkennung: zwei reine Tipps auf dasselbe Textelement innerhalb
+      // kurzer Zeit -> Text zur Bearbeitung öffnen (statt normal auszuwählen/durchzuklicken).
+      const now = Date.now();
+      const isDoubleTap = hit.type==='labels' && lastTapInfo &&
+        lastTapInfo.type==='labels' && lastTapInfo.id===hit.id &&
+        (now - lastTapInfo.time) < DOUBLE_TAP_MS;
+
+      if(isDoubleTap){
+        lastTapInfo = null;
+        const labelObj = getItem(hit);
+        pendingTap = null;
+        if(labelObj) showLabelInput({x:labelObj.x, y:labelObj.y}, labelObj);
+        return;
+      }
+      lastTapInfo = { type: hit.type, id: hit.id, time: now };
+
+      if(pendingTap.isSameAsSelected){
+        // Bereits ausgewähltes Symbol erneut (rein) angetippt -> falls an dieser
+        // Stelle mehrere Symbole übereinanderliegen, das nächste darunterliegende auswählen.
+        const matches = hitTestAll(pendingTap.downPos);
+        if(matches.length > 1){
+          const curIdx = matches.findIndex(m => m.type===selected.type && m.id===selected.id);
+          const nextIdx = (curIdx + 1) % matches.length;
+          selected = matches[nextIdx];
+          draw();
+        }
+      }
+      pendingTap = null;
       return;
     }
     if(dragMode){ dragMode = null; saveState(); }
@@ -2532,10 +2900,14 @@ function pointerUp(e){
         state.labels.push({id:labelId, x:mid.x, y:mid.y-31, text:String(num), isNum:true, forStrokeId: stroke.id, numColor: stroke.color});
         stroke.numberLabelId = labelId;
         state.strokes.push(stroke);
+        setTool('idle');
+        selected = {type:'strokes', id:stroke.id};
         draw(); saveState();
       } else if(stroke.color === 'blue'){
         // blau: keine Nummerierung
         state.strokes.push(stroke);
+        setTool('idle');
+        selected = {type:'strokes', id:stroke.id};
         draw(); saveState();
       } else {
         // schwarz (=grauer Pfeil): L/R-Dialog
@@ -2548,6 +2920,8 @@ function pointerUp(e){
           const mid = pts[Math.floor(pts.length/2)];
           state.labels.push({id:labelId, x:mid.x, y:mid.y-31, text:String(num)+side, isNum:true, forStrokeId: stroke.id, numColor:'black'});
           stroke.numberLabelId = labelId;
+          setTool('idle');
+          selected = {type:'strokes', id:stroke.id};
           draw(); saveState();
         });
       }
@@ -2954,6 +3328,34 @@ document.getElementById('b-project-delete').addEventListener('click', ()=>{
   showConfirm('Projekt „' + activeProjectName + '" mit allen Sequenzen wirklich löschen?', deleteActiveProject, 'Ja, löschen');
 });
 
+document.getElementById('project-dropdown-trigger').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  const panel = document.getElementById('project-dropdown-panel');
+  if(panel.style.display === 'block') closeProjectDropdown();
+  else openProjectDropdown();
+});
+// Schließen bei Tipp/Klick außerhalb der Liste. WICHTIG: 'mousedown'/'touchstart'
+// statt 'click' verwenden - die Zeichenfläche ruft bei jedem Antippen
+// preventDefault() auf, was auf Touch-Geräten das nachfolgende 'click'-Ereignis
+// unterdrückt. mousedown/touchstart feuern dagegen zuverlässig auch dort.
+function closeProjectDropdownIfOutside(e){
+  const panel = document.getElementById('project-dropdown-panel');
+  const trigger = document.getElementById('project-dropdown-trigger');
+  if(!panel || !trigger) return;
+  if(panel.style.display === 'block' && !panel.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)){
+    closeProjectDropdown();
+  }
+}
+document.addEventListener('mousedown', closeProjectDropdownIfOutside);
+document.addEventListener('touchstart', closeProjectDropdownIfOutside, {passive:true});
+// Schließen mit Escape (Computer)
+window.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape'){
+    const panel = document.getElementById('project-dropdown-panel');
+    if(panel && panel.style.display === 'block') closeProjectDropdown();
+  }
+});
+
 // ============================================================
 // EINGEBETTETE BIBLIOTHEK: pptxgenjs (offline-fähig)
 // ============================================================
@@ -3224,7 +3626,7 @@ function showProgressOverlay(msg){
   return ov;
 }
 
-document.getElementById('b-gesamtbild').addEventListener('click', ()=>{
+function exportGesamtbild(){
   const seqs = project.sequences;
   if(!seqs.length){ flashStatus('Keine Sequenzen vorhanden'); return; }
   const ov = showProgressOverlay('Gesamtbild wird erstellt …');
@@ -3238,7 +3640,8 @@ document.getElementById('b-gesamtbild').addEventListener('click', ()=>{
     }catch(err){ flashStatus('Fehler: ' + err.message); }
     document.body.removeChild(ov);
   }, 50);
-});
+}
+document.getElementById('b-gesamtbild').addEventListener('click', exportGesamtbild);
 
 // ============================================================
 // PowerPoint-Export (komplett neu, v35-8)
@@ -3248,7 +3651,7 @@ document.getElementById('b-gesamtbild').addEventListener('click', ()=>{
 // Anker) der nächsten Sequenz liegen exakt dort, wo die Endschritte
 // der vorigen waren.
 // ============================================================
-document.getElementById('b-pptx').addEventListener('click', async ()=>{
+async function exportPPTX(){
   const seqs = project.sequences;
   if(!seqs.length){ flashStatus('Keine Sequenzen vorhanden'); return; }
 
@@ -3333,7 +3736,44 @@ document.getElementById('b-pptx').addEventListener('click', async ()=>{
     flashStatus('Fehler beim PowerPoint-Export: ' + err.message);
     console.error('PPTX-Export-Fehler:', err);
   }
-});
+}
+document.getElementById('b-pptx').addEventListener('click', exportPPTX);
+
+// Neuer zusammengefasster "Drucker"-Button (seit F1-02.14): fasst die drei
+// obigen Export-Funktionen (Aktuelles Bild / Schrittfolge / PowerPoint) in
+// einem Auswahl-Dialog zusammen. Die einzelnen Buttons (b-export,
+// b-gesamtbild, b-pptx) bleiben ausgeblendet im Code bestehen.
+function showPrintChoiceDialog(){
+  const overlay = createOverlay('position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:2000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:12px;padding:18px;max-width:300px;width:88vw;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,0.25);');
+
+  const text = document.createElement('p');
+  text.textContent = 'Was soll gespeichert werden?';
+  text.style.margin = '0 0 14px';
+  text.style.fontSize = '14px';
+  box.appendChild(text);
+
+  function makeBtn(label, handler){
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = 'display:block;width:100%;box-sizing:border-box;background:#2f6fb3;color:#fff;border:none;border-radius:8px;padding:12px 14px;font-size:14px;font-weight:600;margin-bottom:8px;min-height:44px;cursor:pointer;';
+    b.addEventListener('click', ()=>{ document.body.removeChild(overlay); handler(); });
+    return b;
+  }
+
+  box.appendChild(makeBtn('🖼️ Aktuelles Bild', exportCurrentImage));
+  box.appendChild(makeBtn('📏 Schrittfolge', exportGesamtbild));
+  box.appendChild(makeBtn('📊 PowerPoint', exportPPTX));
+
+  const cancelBtn = makeBtn('Abbrechen', ()=>{});
+  cancelBtn.style.background = '#eee';
+  cancelBtn.style.color = '#333';
+  cancelBtn.style.marginBottom = '0';
+  box.appendChild(cancelBtn);
+
+  document.body.appendChild(overlay);
+}
+document.getElementById('b-print').addEventListener('click', showPrintChoiceDialog);
 
 setTool('move');
 loadState();
