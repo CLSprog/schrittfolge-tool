@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-03.2 (12.07.2026) - Testversion (Unternummer): OneDrive-Anbindung Schritt 1 - Azure App-Registrierung abgeschlossen, Client-ID eingetragen, Login-Mechanismus auf modernen PKCE Authorization-Code-Flow umgestellt (statt veraltetem Implicit Flow). In den Dialogen "Speichern" und "Laden" ist OneDrive jetzt anwaehlbar - Klick startet ausschliesslich die Anmeldung und einen Verbindungstest (zeigt den Kontonamen). Es wird noch KEINE Datei tatsaechlich hoch-/heruntergeladen - das folgt erst in einer Folgeversion, sobald der Login zuverlaessig funktioniert. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt (nicht das Bild selbst, nur Position+Zoom als winzige Textdaten). Laedt man dieselbe Datei (gleicher Name, egal aus welchem Ordner) erneut, wird automatisch wieder dieselbe Position/Zoomstufe angewendet - projektuebergreifend, beliebig viele Dateien gleichzeitig. Wird sowohl im automatischen App-Speicher als auch in der JSON-Projektsicherung mitgefuehrt. PowerPoint/Bahn/Einzelbild-Export bleiben davon unberuehrt (Hintergrundbild war dort noch nie enthalten). -->
+<!-- Schrittfolge-Tool F1-03.3 (12.07.2026) - Testversion (Unternummer): Bugfix zu F1-03.2 - Redirect-URI fuer OneDrive-Login war dynamisch berechnet (window.location) und stimmte dadurch je nach Aufrufweg (installierte App vs. Browser, mit/ohne Schraegstrich) nicht exakt mit der in Azure hinterlegten Adresse ueberein -> Fehler "invalid_request: redirect_uri is not valid". Jetzt fest eingetragen: https://clsprog.github.io/schrittfolge-tool/ - identisch mit der Azure-Registrierung, unabhaengig davon wie die Seite geoeffnet wurde. Sonst unveraendert zu F1-03.2: OneDrive-Anbindung Schritt 1 - Azure App-Registrierung abgeschlossen, Client-ID eingetragen, Login-Mechanismus auf modernen PKCE Authorization-Code-Flow umgestellt (statt veraltetem Implicit Flow). In den Dialogen "Speichern" und "Laden" ist OneDrive anwaehlbar - Klick startet ausschliesslich die Anmeldung und einen Verbindungstest (zeigt den Kontonamen). Es wird noch KEINE Datei tatsaechlich hoch-/heruntergeladen - das folgt erst in einer Folgeversion, sobald der Login zuverlaessig funktioniert. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt (nicht das Bild selbst, nur Position+Zoom als winzige Textdaten). Laedt man dieselbe Datei (gleicher Name, egal aus welchem Ordner) erneut, wird automatisch wieder dieselbe Position/Zoomstufe angewendet - projektuebergreifend, beliebig viele Dateien gleichzeitig. Wird sowohl im automatischen App-Speicher als auch in der JSON-Projektsicherung mitgefuehrt. PowerPoint/Bahn/Einzelbild-Export bleiben davon unberuehrt (Hintergrundbild war dort noch nie enthalten). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-03.2</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-03.3</span></p>
   </header>
 
   <div class="toolbar">
@@ -321,7 +321,9 @@ const IN_CLAUDE = !!(typeof window !== 'undefined' && window.storage && typeof w
 const CLOUD_CONFIG = {
   onedrive: {
     clientId: '17cb4cec-8730-4ff2-b2a0-bb33d01b5466',
-    redirectUri: window.location.origin + window.location.pathname,
+    // FEST eingetragen (nicht dynamisch berechnet), muss exakt der in Azure hinterlegten
+    // Redirect-URI entsprechen - sonst "invalid_request: redirect_uri is not valid".
+    redirectUri: 'https://clsprog.github.io/schrittfolge-tool/',
     scope: 'Files.ReadWrite offline_access User.Read',
     authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
     tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
