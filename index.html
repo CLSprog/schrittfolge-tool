@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-03.6 (12.07.2026) - Testversion (Unternummer): Diagnose-Fix zu F1-03.5 - trotz der Absicherung in F1-03.5 blieb der OneDrive-Test auf einem Android-Geraet weiterhin komplett stumm (kein Tab, keine Meldung, kein Fehler) - das deutet auf einen unbehandelten JavaScript-Fehler/eine "unhandled promise rejection" IRGENDWO im Ablauf hin, die selbst die eigene Fehleranzeige (showConfirm) umgangen hat. Als letzte Sicherheitsstufe wurde jetzt ueberall im OneDrive-Login-Pfad (cloudStartLogin, cloudTestLogin, cloudCheckRedirect, beide Button-Klicks) ein zusaetzliches try/catch mit normalem Browser-alert() als Notfall-Rueckmeldung ergaenzt - das kann technisch nicht mehr ausbleiben, unabhaengig von Fehlern in der eigenen Dialogfunktion. Damit sollte beim naechsten Test in JEDEM Fall irgendeine Meldung erscheinen. Sonst unveraendert zu F1-03.5: Cloud-Check-Redirect prueft URL zuerst. localStorage statt sessionStorage. Redirect-URI fest eingetragen. PKCE Authorization-Code-Flow. OneDrive in Speichern/Laden-Dialogen anwaehlbar, testet nur Anmeldung, noch kein echtes Speichern/Laden. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt. -->
+<!-- Schrittfolge-Tool F1-03.7 (12.07.2026) - Testversion (Unternummer): ECHTER FEHLER GEFUNDEN UND BEHOBEN (dank Notfall-alert() aus F1-03.6 sichtbar geworden): "history.replaceState is not a function" - in dem Browser-Kontext, der fuer die Microsoft-Anmeldung auf Android verwendet wird, ist diese Standardfunktion nicht verfuegbar/eingeschraenkt. Dadurch brach die gesamte Verarbeitung nach dem Login-Ruecksprung sofort ab, BEVOR der Code gegen ein Token getauscht werden konnte - daher vorher "gar keine Reaktion". Alle drei Aufrufe von history.replaceState() jetzt in try/catch gekapselt, sodass ein Fehler dort die Verarbeitung nicht mehr stoppt. Sonst unveraendert zu F1-03.6: Notfall-alert() bei unerwarteten Fehlern im gesamten OneDrive-Login-Pfad. Cloud-Check-Redirect prueft URL zuerst, immer sichtbare Rueckmeldung. localStorage statt sessionStorage. Redirect-URI fest eingetragen. PKCE Authorization-Code-Flow. OneDrive in Speichern/Laden-Dialogen anwaehlbar, testet nur Anmeldung, noch kein echtes Speichern/Laden. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-03.6</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-03.7</span></p>
   </header>
 
   <div class="toolbar">
@@ -581,7 +581,7 @@ async function cloudCheckRedirect(){
 
   // Fall A: Microsoft hat einen Fehler zurückgegeben (z.B. abgelehnte Anmeldung)
   if(oauthError){
-    history.replaceState(null, '', window.location.pathname);
+    try{ history.replaceState(null, '', window.location.pathname); }catch(e){}
     localStorage.removeItem('schrittfolge-cloud-pending');
     localStorage.removeItem('schrittfolge-cloud-test');
     showConfirm('OneDrive-Anmeldung von Microsoft abgelehnt:\n\n' + oauthError, ()=>{}, 'Verstanden');
@@ -594,7 +594,7 @@ async function cloudCheckRedirect(){
     const provider = localStorage.getItem('schrittfolge-cloud-pending') || 'onedrive';
     const isTest = localStorage.getItem('schrittfolge-cloud-test') === provider;
     const verifier = localStorage.getItem('schrittfolge-onedrive-verifier');
-    history.replaceState(null, '', window.location.pathname);
+    try{ history.replaceState(null, '', window.location.pathname); }catch(e){}
     localStorage.removeItem('schrittfolge-cloud-pending');
     localStorage.removeItem('schrittfolge-cloud-test');
 
@@ -622,7 +622,7 @@ async function cloudCheckRedirect(){
   cloudSetToken(provider, token);
   localStorage.removeItem('schrittfolge-cloud-pending');
   localStorage.removeItem('schrittfolge-cloud-test');
-  history.replaceState(null, '', window.location.pathname);
+  try{ history.replaceState(null, '', window.location.pathname); }catch(e){}
   flashStatus('pCloud verbunden');
 }
 
