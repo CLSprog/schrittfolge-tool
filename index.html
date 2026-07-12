@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-03 (09.07.2026) - Zweite offizielle Release-Version. Zusammenfassung seit F1-01: Anker-Fuesse behalten exakte Weltkoordinaten (kein Verschieben mehr zur Bildschirmmitte), dauerhafte Anker-Sperre, alle Platzier-Werkzeuge schalten nach einer Platzierung automatisch ab und waehlen das gesetzte Symbol sofort aus (direkt verschieb-/drehbar), Durchklicken uebereinanderliegender Symbole (beliebig viele), Antippen+Ziehen bewegt sofort, Text per Doppeltipp nachtraeglich bearbeitbar, new und BK (Notfall-Neustart) zu einem kontextabhaengigen Button vereint, Projekt-Dropdown mit Stift/Papierkorb direkt pro Zeile, Speichern-Buttons neu geordnet und zusammengefasst (Drucker-Button fuer Bild/Schrittfolge/PowerPoint), diverse ungenutzte Buttons ausgeblendet (Code erhalten), zahlreiche Layout-Feinheiten. Cross-Platform (Android/iOS/macOS/Windows) durchgehend geprueft. -->
+<!-- Schrittfolge-Tool F1-03.2 (12.07.2026) - Testversion (Unternummer): OneDrive-Anbindung Schritt 1 - Azure App-Registrierung abgeschlossen, Client-ID eingetragen, Login-Mechanismus auf modernen PKCE Authorization-Code-Flow umgestellt (statt veraltetem Implicit Flow). In den Dialogen "Speichern" und "Laden" ist OneDrive jetzt anwaehlbar - Klick startet ausschliesslich die Anmeldung und einen Verbindungstest (zeigt den Kontonamen). Es wird noch KEINE Datei tatsaechlich hoch-/heruntergeladen - das folgt erst in einer Folgeversion, sobald der Login zuverlaessig funktioniert. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt (nicht das Bild selbst, nur Position+Zoom als winzige Textdaten). Laedt man dieselbe Datei (gleicher Name, egal aus welchem Ordner) erneut, wird automatisch wieder dieselbe Position/Zoomstufe angewendet - projektuebergreifend, beliebig viele Dateien gleichzeitig. Wird sowohl im automatischen App-Speicher als auch in der JSON-Projektsicherung mitgefuehrt. PowerPoint/Bahn/Einzelbild-Export bleiben davon unberuehrt (Hintergrundbild war dort noch nie enthalten). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-03</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-03.2</span></p>
   </header>
 
   <div class="toolbar">
@@ -320,11 +320,14 @@ const IN_CLAUDE = !!(typeof window !== 'undefined' && window.storage && typeof w
 // GitHub funktioniert bereits jetzt über ein persönliches Zugriffstoken (kein OAuth-Redirect nötig).
 const CLOUD_CONFIG = {
   onedrive: {
-    clientId: 'BITTE_AZURE_CLIENT_ID_EINTRAGEN', // z.B. 'c44b4083-3bb0-49c1-b47d-974e53cbdf3c'
+    clientId: '17cb4cec-8730-4ff2-b2a0-bb33d01b5466',
     redirectUri: window.location.origin + window.location.pathname,
-    scope: 'Files.ReadWrite offline_access',
+    scope: 'Files.ReadWrite offline_access User.Read',
     authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-    tokenKey: 'schrittfolge-onedrive-token'
+    tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    tokenKey: 'schrittfolge-onedrive-token',
+    refreshKey: 'schrittfolge-onedrive-refresh',
+    expiryKey: 'schrittfolge-onedrive-expiry'
   },
   pcloud: {
     clientId: 'BITTE_PCLOUD_CLIENT_ID_EINTRAGEN',
@@ -484,8 +487,26 @@ async function githubDownload(filename){
 }
 
 
+// --- PKCE-Hilfsfunktionen (für OneDrive: Authorization-Code-Flow statt veraltetem Implicit Flow) ---
+function pkceRandomString(len){
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => ('0'+b.toString(16)).slice(-2)).join('').slice(0, len);
+}
+function pkceBase64UrlEncode(buffer){
+  let str = '';
+  const bytes = new Uint8Array(buffer);
+  for(let i=0;i<bytes.byteLength;i++){ str += String.fromCharCode(bytes[i]); }
+  return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function pkceGenerateChallenge(verifier){
+  const enc = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', enc);
+  return pkceBase64UrlEncode(digest);
+}
+
 // Startet den OAuth-Login für den gewünschten Cloud-Anbieter (Redirect-Flow)
-function cloudStartLogin(provider){
+async function cloudStartLogin(provider, testOnly){
   const cfg = CLOUD_CONFIG[provider];
   if(!cloudIsConfigured(provider)){
     showConfirm(
@@ -497,32 +518,117 @@ function cloudStartLogin(provider){
     return;
   }
   sessionStorage.setItem('schrittfolge-cloud-pending', provider);
-  let url;
+  if(testOnly){ sessionStorage.setItem('schrittfolge-cloud-test', provider); }
+  else { sessionStorage.removeItem('schrittfolge-cloud-test'); }
+
   if(provider === 'onedrive'){
-    url = cfg.authUrl + '?client_id=' + encodeURIComponent(cfg.clientId) +
-      '&response_type=token' +
+    // Moderner PKCE Authorization-Code-Flow (statt veraltetem Implicit Flow)
+    const verifier = pkceRandomString(64);
+    const challenge = await pkceGenerateChallenge(verifier);
+    sessionStorage.setItem('schrittfolge-onedrive-verifier', verifier);
+    const url = cfg.authUrl + '?client_id=' + encodeURIComponent(cfg.clientId) +
+      '&response_type=code' +
       '&redirect_uri=' + encodeURIComponent(cfg.redirectUri) +
-      '&scope=' + encodeURIComponent(cfg.scope);
+      '&scope=' + encodeURIComponent(cfg.scope) +
+      '&code_challenge=' + encodeURIComponent(challenge) +
+      '&code_challenge_method=S256';
+    window.location.href = url;
   } else {
-    url = cfg.authUrl + '?client_id=' + encodeURIComponent(cfg.clientId) +
+    const url = cfg.authUrl + '?client_id=' + encodeURIComponent(cfg.clientId) +
       '&response_type=token' +
       '&redirect_uri=' + encodeURIComponent(cfg.redirectUri);
+    window.location.href = url;
   }
-  window.location.href = url;
+}
+
+// Tauscht bei OneDrive den Authorization-Code (PKCE) gegen ein Access-Token
+async function onedriveExchangeCodeForToken(code){
+  const cfg = CLOUD_CONFIG.onedrive;
+  const verifier = sessionStorage.getItem('schrittfolge-onedrive-verifier') || '';
+  const body = new URLSearchParams({
+    client_id: cfg.clientId,
+    grant_type: 'authorization_code',
+    code: code,
+    redirect_uri: cfg.redirectUri,
+    code_verifier: verifier
+  });
+  const res = await fetch(cfg.tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  if(!res.ok) throw new Error('Token-Austausch fehlgeschlagen (' + res.status + ')');
+  const data = await res.json();
+  cloudSetToken('onedrive', data.access_token);
+  if(data.refresh_token){ try{ localStorage.setItem(cfg.refreshKey, data.refresh_token); }catch(e){} }
+  if(data.expires_in){ try{ localStorage.setItem(cfg.expiryKey, String(Date.now() + data.expires_in*1000)); }catch(e){} }
+  sessionStorage.removeItem('schrittfolge-onedrive-verifier');
 }
 
 // Prüft beim Laden der Seite, ob wir gerade von einem OAuth-Redirect zurückkommen
-function cloudCheckRedirect(){
+async function cloudCheckRedirect(){
+  const provider = sessionStorage.getItem('schrittfolge-cloud-pending');
+  if(!provider) return;
+  const isTest = sessionStorage.getItem('schrittfolge-cloud-test') === provider;
+
+  if(provider === 'onedrive'){
+    const qs = new URLSearchParams(window.location.search);
+    const code = qs.get('code');
+    if(!code) return;
+    sessionStorage.removeItem('schrittfolge-cloud-pending');
+    sessionStorage.removeItem('schrittfolge-cloud-test');
+    history.replaceState(null, '', window.location.pathname);
+    try{
+      await onedriveExchangeCodeForToken(code);
+      if(isTest){ await cloudTestLogin('onedrive', true); }
+      else { flashStatus('OneDrive verbunden'); }
+    }catch(e){
+      showConfirm('OneDrive-Anmeldung fehlgeschlagen: ' + e.message, ()=>{}, 'Verstanden');
+    }
+    return;
+  }
+
+  // pCloud (weiterhin Implicit Flow, unverändert)
   if(!window.location.hash) return;
   const params = new URLSearchParams(window.location.hash.substring(1));
   const token = params.get('access_token');
   if(!token) return;
-  const provider = sessionStorage.getItem('schrittfolge-cloud-pending');
-  if(!provider) return;
   cloudSetToken(provider, token);
   sessionStorage.removeItem('schrittfolge-cloud-pending');
+  sessionStorage.removeItem('schrittfolge-cloud-test');
   history.replaceState(null, '', window.location.pathname);
-  flashStatus((provider === 'onedrive' ? 'OneDrive' : 'pCloud') + ' verbunden');
+  flashStatus('pCloud verbunden');
+}
+
+// Testet nur die Verbindung zu OneDrive (Anmeldung + Kontoname), OHNE eine Datei zu speichern/laden
+async function cloudTestLogin(provider, alreadyJustLoggedIn){
+  if(provider !== 'onedrive'){ return; }
+  if(!cloudIsConfigured(provider)){
+    showConfirm('OneDrive ist noch nicht eingerichtet (fehlende Client-ID).', ()=>{}, 'Verstanden');
+    return;
+  }
+  const token = cloudGetToken(provider);
+  if(!token){
+    await cloudStartLogin(provider, true);
+    return;
+  }
+  try{
+    const res = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if(res.status === 401){
+      // Token abgelaufen/ungültig -> erneut anmelden
+      cloudLogout(provider);
+      await cloudStartLogin(provider, true);
+      return;
+    }
+    if(!res.ok) throw new Error('Status ' + res.status);
+    const me = await res.json();
+    const name = me.displayName || me.userPrincipalName || 'unbekannt';
+    showConfirm('✅ Verbunden mit OneDrive\n\nKonto: ' + name, ()=>{}, 'Super');
+  }catch(e){
+    showConfirm('OneDrive-Verbindungstest fehlgeschlagen: ' + e.message, ()=>{}, 'Verstanden');
+  }
 }
 
 // Lädt eine Datei in OneDrive hoch (in den App-Ordner "Schrittfolge")
@@ -674,6 +780,12 @@ let bgImage = null;         // HTMLImageElement oder null
 let bgOffset = {x: 0, y: 0}; // Verschiebung des Hintergrundbilds (in Canvas-Pixeln)
 let bgScale = 1.0;          // Zoom des Hintergrundbilds
 let lastBgScale = null;     // letzter manuell eingestellter bgScale (für nächstes Bild übernehmen)
+// Merkt sich pro Dateiname (nicht pro Projekt, nicht der Bildinhalt selbst) die zuletzt
+// eingestellte Position/Zoom des Hintergrundbilds. Lädt man dieselbe Datei erneut
+// (gleicher Name, unabhängig vom Ordner), wird automatisch wieder dieselbe
+// Position/Zoomstufe verwendet, ohne das Bild selbst dauerhaft speichern zu müssen.
+let bgImagePositions = {}; // { dateiname: {offsetX, offsetY, scale} }
+let currentBgFileName = null; // Dateiname des aktuell geladenen Hintergrundbilds
 let bgPinchStart = null;    // Pinch-Zustand für Hintergrundbild-Zoom
 let bgDragStart = null;     // Zwei-Finger-Drag Startpunkt
 
@@ -1176,7 +1288,7 @@ function closeProjectDropdown(){
 async function saveState(){
   try{
     commitActiveProjectState();
-    await storeSet(STORAGE_KEY_MULTI, JSON.stringify({ projects, activeProjectName }));
+    await storeSet(STORAGE_KEY_MULTI, JSON.stringify({ projects, activeProjectName, bgImagePositions }));
     flashStatus('Gespeichert');
     updateSeqCount();
   }catch(e){ flashStatus('Speichern fehlgeschlagen'); }
@@ -1269,6 +1381,7 @@ async function loadState(){
       const parsed = JSON.parse(valMulti);
       projects = parsed.projects || {};
       activeProjectName = parsed.activeProjectName;
+      bgImagePositions = parsed.bgImagePositions || {};
     } else {
       // Migration: alten Einzelprojekt-Key übernehmen, falls vorhanden
       const legacy = await storeGet(STORAGE_KEY);
@@ -1958,6 +2071,13 @@ function bgUpdateButtons(){
   if(!hasBg && currentTool === 'bg-pan') setTool('move');
 }
 
+// Merkt die aktuelle Position/Zoom unter dem aktuellen Dateinamen (falls vorhanden).
+// Wird nach jeder abgeschlossenen Verschiebung/Zoom-Änderung aufgerufen.
+function saveBgImagePosition(){
+  if(!currentBgFileName) return;
+  bgImagePositions[currentBgFileName] = { offsetX: bgOffset.x, offsetY: bgOffset.y, scale: bgScale };
+}
+
 document.getElementById('b-bg-load').addEventListener('click', ()=>{
   document.getElementById('bg-file-input').click();
 });
@@ -1969,20 +2089,31 @@ document.getElementById('bg-file-input').addEventListener('change', (e)=>{
   const img = new Image();
   img.onload = ()=>{
     bgImage = img;
-    if(lastBgScale !== null){
+    currentBgFileName = file.name;
+    const remembered = bgImagePositions[file.name];
+    if(remembered){
+      // Diese Datei wurde schon einmal verwendet -> genau dieselbe Position/Zoom wieder anwenden
+      bgOffset = { x: remembered.offsetX, y: remembered.offsetY };
+      bgScale = remembered.scale;
+      lastBgScale = bgScale;
+      flashStatus('Hintergrundbild geladen (Position übernommen)');
+    } else if(lastBgScale !== null){
       // Letzten Scale wiederverwenden (konsistente Darstellung bei allen Sequenzbildern)
       bgScale = lastBgScale;
+      bgOffset = { x: viewOffset.x, y: viewOffset.y };
+      flashStatus('Hintergrundbild geladen');
     } else {
       // Erstmaliges Laden: Bild-Breite = sichtbare Canvas-Breite
       const logicalW = wrap.clientWidth;
       bgScale = logicalW / img.naturalWidth;
       lastBgScale = bgScale;
+      bgOffset = { x: viewOffset.x, y: viewOffset.y };
+      flashStatus('Hintergrundbild geladen');
     }
-    // Bild oben-links im aktuellen Sichtbereich
-    bgOffset = { x: viewOffset.x, y: viewOffset.y };
+    saveBgImagePosition();
     bgUpdateButtons();
     draw();
-    flashStatus('Hintergrundbild geladen');
+    saveState();
   };
   img.src = url;
   e.target.value = '';
@@ -1992,6 +2123,7 @@ document.getElementById('b-bg-clear').addEventListener('click', ()=>{
   bgImage = null;
   bgOffset = {x:0, y:0};
   bgScale = 1.0;
+  currentBgFileName = null; // gemerkte Position in bgImagePositions bleibt für nächstes Mal erhalten
   // lastBgScale bleibt erhalten → nächstes Bild übernimmt denselben Scale
   bgUpdateButtons();
   if(currentTool === 'bg-pan') setTool('move');
@@ -2008,7 +2140,9 @@ document.getElementById('b-bg-zoom-in').addEventListener('click', ()=>{
   lastBgScale = bgScale;
   bgOffset.x = midX - (bgImage.naturalWidth * bgScale) / 2;
   bgOffset.y = midY - (bgImage.naturalHeight * bgScale) / 2;
+  saveBgImagePosition();
   draw();
+  saveState();
   flashStatus('BG größer');
 });
 
@@ -2020,7 +2154,9 @@ document.getElementById('b-bg-zoom-out').addEventListener('click', ()=>{
   lastBgScale = bgScale;
   bgOffset.x = midX - (bgImage.naturalWidth * bgScale) / 2;
   bgOffset.y = midY - (bgImage.naturalHeight * bgScale) / 2;
+  saveBgImagePosition();
   draw();
+  saveState();
   flashStatus('BG kleiner');
 });
 
@@ -2235,11 +2371,11 @@ function buildExportPayload(exportType){
   commitActiveProjectState();
   if(exportType === 'single'){
     const p = projects[activeProjectName];
-    const data = { app:'schrittfolge', version:36, type:'single', projectName: activeProjectName, project: p };
+    const data = { app:'schrittfolge', version:36, type:'single', projectName: activeProjectName, project: p, bgImagePositions };
     const fname = sanitizeFileName(activeProjectName) + '_' + dateStamp() + '.json';
     return { data, fname };
   } else {
-    const data = { app:'schrittfolge', version:36, type:'all', projects, activeProjectName };
+    const data = { app:'schrittfolge', version:36, type:'all', projects, activeProjectName, bgImagePositions };
     const fname = 'AlleProjekte_' + dateStamp() + '.json';
     return { data, fname };
   }
@@ -2314,6 +2450,14 @@ function showStorageTargetDialog(exportType){
     showConfirm('pCloud-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
   });
 
+  const btnOnedrive = document.createElement('button');
+  btnOnedrive.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#0078d4;color:#fff;font-size:14px;font-weight:600;';
+  btnOnedrive.innerHTML = '☁️ OneDrive <span style="font-size:11px;font-weight:400;">(Testphase: nur Anmeldung)</span>';
+  btnOnedrive.addEventListener('click', async ()=>{
+    document.body.removeChild(overlay);
+    await cloudTestLogin('onedrive');
+  });
+
   const btnCancel = document.createElement('button');
   btnCancel.textContent = 'Abbrechen';
   btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;';
@@ -2321,6 +2465,7 @@ function showStorageTargetDialog(exportType){
 
   box.appendChild(btnLocal);
   box.appendChild(btnGithub);
+  box.appendChild(btnOnedrive);
   box.appendChild(btnPcloud);
   box.appendChild(btnCancel);
   overlay.appendChild(box);
@@ -2430,6 +2575,7 @@ function importProjectDataFromText(text){
     // --- Einzelprojekt-Datei ---
     if(data.type === 'single' && data.projectName && data.project){
       const name = data.projectName;
+      if(data.bgImagePositions) Object.assign(bgImagePositions, data.bgImagePositions);
       if(projects[name]){
         // Projekt mit diesem Namen existiert bereits → nachfragen
         showConfirm(
@@ -2455,6 +2601,7 @@ function importProjectDataFromText(text){
 
     // --- Alle-Projekte-Datei (neu oder Legacy) ---
     if(data.projects || data.type === 'all'){
+      if(data.bgImagePositions) Object.assign(bgImagePositions, data.bgImagePositions);
       showConfirm(
         'Alle aktuellen Projekte werden ersetzt. Fortfahren?',
         ()=>{
@@ -2821,7 +2968,11 @@ function pointerUp(e){
     return;
   }
   if(currentTool==='pan' || currentTool==='bg-pan'){
-    if(panStart){ panStart = null; saveState(); }
+    if(panStart){
+      panStart = null;
+      if(currentTool==='bg-pan') saveBgImagePosition();
+      saveState();
+    }
     return;
   }
   if(currentTool==='label' && pendingLabelPos){
@@ -2953,9 +3104,11 @@ canvas.addEventListener('touchmove', (e)=>{
 }, {passive:false});
 window.addEventListener('touchend', (e)=>{
   const wasViewPinching = viewPinchDist !== null;
+  const wasBgPinching = bgPinchDist !== null;
   bgTouchEnd();
   viewTouchEnd();
   if(wasViewPinching) saveState();
+  if(wasBgPinching){ saveBgImagePosition(); saveState(); }
   pointerUp(e);
 });
 canvas.addEventListener('wheel', handleWheel, {passive:false});
@@ -3223,6 +3376,14 @@ function showImportSourceDialog(){
     showConfirm('pCloud-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
   });
 
+  const btnOnedrive = document.createElement('button');
+  btnOnedrive.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#0078d4;color:#fff;font-size:14px;font-weight:600;';
+  btnOnedrive.innerHTML = '☁️ OneDrive <span style="font-size:11px;font-weight:400;">(Testphase: nur Anmeldung)</span>';
+  btnOnedrive.addEventListener('click', async ()=>{
+    document.body.removeChild(overlay);
+    await cloudTestLogin('onedrive');
+  });
+
   const btnCancel = document.createElement('button');
   btnCancel.textContent = 'Abbrechen';
   btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;';
@@ -3230,6 +3391,7 @@ function showImportSourceDialog(){
 
   box.appendChild(btnLocal);
   box.appendChild(btnGithub);
+  box.appendChild(btnOnedrive);
   box.appendChild(btnPcloud);
   box.appendChild(btnCancel);
   overlay.appendChild(box);
