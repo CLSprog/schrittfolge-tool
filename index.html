@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-03.7 (12.07.2026) - Testversion (Unternummer): ECHTER FEHLER GEFUNDEN UND BEHOBEN (dank Notfall-alert() aus F1-03.6 sichtbar geworden): "history.replaceState is not a function" - in dem Browser-Kontext, der fuer die Microsoft-Anmeldung auf Android verwendet wird, ist diese Standardfunktion nicht verfuegbar/eingeschraenkt. Dadurch brach die gesamte Verarbeitung nach dem Login-Ruecksprung sofort ab, BEVOR der Code gegen ein Token getauscht werden konnte - daher vorher "gar keine Reaktion". Alle drei Aufrufe von history.replaceState() jetzt in try/catch gekapselt, sodass ein Fehler dort die Verarbeitung nicht mehr stoppt. Sonst unveraendert zu F1-03.6: Notfall-alert() bei unerwarteten Fehlern im gesamten OneDrive-Login-Pfad. Cloud-Check-Redirect prueft URL zuerst, immer sichtbare Rueckmeldung. localStorage statt sessionStorage. Redirect-URI fest eingetragen. PKCE Authorization-Code-Flow. OneDrive in Speichern/Laden-Dialogen anwaehlbar, testet nur Anmeldung, noch kein echtes Speichern/Laden. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt. -->
+<!-- Schrittfolge-Tool F1-03.8 (12.07.2026) - Testversion (Unternummer): Echtes Speichern/Laden mit OneDrive aktiviert (Login-Test aus F1-03.2 bis F1-03.7 war erfolgreich auf Windows und Android). OneDrive-Button in "Speichern" ruft jetzt cloudSaveFlow('onedrive', ...) auf (laedt Datei tatsaechlich in den OneDrive-Ordner "Schrittfolge" hoch), OneDrive-Button in "Laden" ruft showCloudFileList('onedrive') auf (zeigt vorhandene Dateien im Ordner "Schrittfolge" zur Auswahl, laedt gewaehlte Datei herunter). Zusatz-Fixes: onedriveListFiles behandelt einen noch nicht existierenden Ordner (erster Aufruf, noch keine Datei gespeichert) jetzt als leere Liste statt als Fehler. Race Condition beim Fortsetzen eines unterbrochenen Speicher-/Ladevorgangs nach Login behoben (vorher: fixe 300ms-Wartezeit nach Redirect, jetzt: sauberes await auf cloudCheckRedirect() vor Fortsetzung). Fehlermeldungen beim Speichern/Laden zeigen jetzt den genauen technischen Fehlertext an (statt nur "fehlgeschlagen"). Sonst unveraendert zu F1-03.7: PKCE Authorization-Code-Flow, localStorage-basierte Zwischenspeicherung, feste Redirect-URI, Notfall-alert() bei unerwarteten Fehlern. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-03.7</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-03.8</span></p>
   </header>
 
   <div class="toolbar">
@@ -681,6 +681,7 @@ async function onedriveListFiles(){
   if(!token) throw new Error('nicht eingeloggt');
   const url = 'https://graph.microsoft.com/v1.0/me/drive/root:/Schrittfolge:/children';
   const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+  if(res.status === 404){ return []; } // Ordner existiert noch nicht -> noch keine Datei gespeichert
   if(!res.ok) throw new Error('Abruf fehlgeschlagen: ' + res.status);
   const data = await res.json();
   return (data.value || []).filter(f => f.name.endsWith('.json'));
@@ -2482,10 +2483,10 @@ function showStorageTargetDialog(exportType){
 
   const btnOnedrive = document.createElement('button');
   btnOnedrive.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#0078d4;color:#fff;font-size:14px;font-weight:600;';
-  btnOnedrive.innerHTML = '☁️ OneDrive <span style="font-size:11px;font-weight:400;">(Testphase: nur Anmeldung)</span>';
+  btnOnedrive.innerHTML = '☁️ OneDrive';
   btnOnedrive.addEventListener('click', async ()=>{
     document.body.removeChild(overlay);
-    try{ await cloudTestLogin('onedrive'); }catch(e){ alert('Fehler: ' + (e && e.message ? e.message : e)); }
+    try{ await cloudSaveFlow('onedrive', fname, text); }catch(e){ alert('Fehler beim OneDrive-Speichern: ' + (e && e.message ? e.message : e)); }
   });
 
   const btnCancel = document.createElement('button');
@@ -2554,7 +2555,7 @@ async function cloudSaveFlow(provider, fname, text){
     await onedriveUpload(fname, text);
     flashStatus('In OneDrive gespeichert: ' + fname);
   }catch(e){
-    flashStatus('Cloud-Speichern fehlgeschlagen');
+    showConfirm('OneDrive-Speichern fehlgeschlagen: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden');
   }
 }
 
@@ -3408,10 +3409,10 @@ function showImportSourceDialog(){
 
   const btnOnedrive = document.createElement('button');
   btnOnedrive.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#0078d4;color:#fff;font-size:14px;font-weight:600;';
-  btnOnedrive.innerHTML = '☁️ OneDrive <span style="font-size:11px;font-weight:400;">(Testphase: nur Anmeldung)</span>';
+  btnOnedrive.innerHTML = '☁️ OneDrive';
   btnOnedrive.addEventListener('click', async ()=>{
     document.body.removeChild(overlay);
-    try{ await cloudTestLogin('onedrive'); }catch(e){ alert('Fehler: ' + (e && e.message ? e.message : e)); }
+    try{ await showCloudFileList('onedrive'); }catch(e){ alert('Fehler beim OneDrive-Laden: ' + (e && e.message ? e.message : e)); }
   });
 
   const btnCancel = document.createElement('button');
@@ -3487,7 +3488,7 @@ async function showCloudFileList(provider){
           else if(provider === 'pcloud'){ text = await pcloudDownload(f.name); }
           else { text = await onedriveDownload(f.name); }
           importProjectDataFromText(text);
-        }catch(e){ flashStatus('Laden fehlgeschlagen'); }
+        }catch(e){ showConfirm('Laden fehlgeschlagen: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden'); }
       });
       box.appendChild(btn);
     });
@@ -3501,7 +3502,7 @@ async function showCloudFileList(provider){
     overlay.appendChild(box);
     document.body.appendChild(overlay);
   }catch(e){
-    flashStatus('Dateiliste konnte nicht geladen werden');
+    showConfirm('Dateiliste konnte nicht geladen werden: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden');
   }
 }
 
@@ -3969,30 +3970,32 @@ document.getElementById('b-print').addEventListener('click', showPrintChoiceDial
 
 setTool('move');
 loadState();
-cloudCheckRedirect().catch(function(e){ alert('Unerwarteter Fehler beim Prüfen der Anmeldung:\n' + (e && e.message ? e.message : e)); });
 
-// Falls wir gerade von einem Cloud-Login zurückkommen: unterbrochenen Speichervorgang fortsetzen
-(function resumeCloudSaveIfPending(){
+// Zuerst prüfen, ob wir von einem Cloud-Login zurückkommen, DANACH erst einen
+// unterbrochenen Speicher-/Ladevorgang fortsetzen (verhindert Race Condition).
+(async function initCloudFlow(){
+  try{
+    await cloudCheckRedirect();
+  }catch(e){
+    alert('Unerwarteter Fehler beim Prüfen der Anmeldung:\n' + (e && e.message ? e.message : e));
+  }
   const pendingRaw = localStorage.getItem('schrittfolge-cloud-resume');
   if(pendingRaw){
     localStorage.removeItem('schrittfolge-cloud-resume');
     const pending = JSON.parse(pendingRaw);
-    setTimeout(()=>{
-      if(cloudGetToken(pending.provider)){
-        cloudSaveFlow(pending.provider, pending.fname, pending.text);
-      }
-    }, 300);
+    if(cloudGetToken(pending.provider)){
+      cloudSaveFlow(pending.provider, pending.fname, pending.text);
+    }
   }
   const pendingImport = localStorage.getItem('schrittfolge-cloud-resume-import');
   if(pendingImport){
     localStorage.removeItem('schrittfolge-cloud-resume-import');
-    setTimeout(()=>{
-      if(cloudGetToken(pendingImport)){
-        showCloudFileList(pendingImport);
-      }
-    }, 300);
+    if(cloudGetToken(pendingImport)){
+      showCloudFileList(pendingImport);
+    }
   }
 })();
+
 </script>
 </body>
 </html>
