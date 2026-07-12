@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-03.3 (12.07.2026) - Testversion (Unternummer): Bugfix zu F1-03.2 - Redirect-URI fuer OneDrive-Login war dynamisch berechnet (window.location) und stimmte dadurch je nach Aufrufweg (installierte App vs. Browser, mit/ohne Schraegstrich) nicht exakt mit der in Azure hinterlegten Adresse ueberein -> Fehler "invalid_request: redirect_uri is not valid". Jetzt fest eingetragen: https://clsprog.github.io/schrittfolge-tool/ - identisch mit der Azure-Registrierung, unabhaengig davon wie die Seite geoeffnet wurde. Sonst unveraendert zu F1-03.2: OneDrive-Anbindung Schritt 1 - Azure App-Registrierung abgeschlossen, Client-ID eingetragen, Login-Mechanismus auf modernen PKCE Authorization-Code-Flow umgestellt (statt veraltetem Implicit Flow). In den Dialogen "Speichern" und "Laden" ist OneDrive anwaehlbar - Klick startet ausschliesslich die Anmeldung und einen Verbindungstest (zeigt den Kontonamen). Es wird noch KEINE Datei tatsaechlich hoch-/heruntergeladen - das folgt erst in einer Folgeversion, sobald der Login zuverlaessig funktioniert. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt (nicht das Bild selbst, nur Position+Zoom als winzige Textdaten). Laedt man dieselbe Datei (gleicher Name, egal aus welchem Ordner) erneut, wird automatisch wieder dieselbe Position/Zoomstufe angewendet - projektuebergreifend, beliebig viele Dateien gleichzeitig. Wird sowohl im automatischen App-Speicher als auch in der JSON-Projektsicherung mitgefuehrt. PowerPoint/Bahn/Einzelbild-Export bleiben davon unberuehrt (Hintergrundbild war dort noch nie enthalten). -->
+<!-- Schrittfolge-Tool F1-03.4 (12.07.2026) - Testversion (Unternummer): Bugfix zu F1-03.3 - auf Android (installierte App/PWA) sprang der OneDrive-Login-Vorgang oft in ein separates Browser-Fenster; dessen sessionStorage ist getrennt vom ursprünglichen App-Fenster, daher ging der Zwischenzustand (angemeldeter Anbieter, PKCE-Code-Verifier) beim Rücksprung verloren -> Login-Fenster blitzte kurz auf, verschwand wieder, keine Bestätigung. Zwischenspeicherung fuer den Login-Ablauf jetzt auf localStorage umgestellt (bleibt fensteruebergreifend erhalten). Sonst unveraendert zu F1-03.3: Redirect-URI fuer OneDrive fest eingetragen (https://clsprog.github.io/schrittfolge-tool/). OneDrive-Anbindung Schritt 1 - Azure App-Registrierung abgeschlossen, Client-ID eingetragen, Login-Mechanismus auf modernen PKCE Authorization-Code-Flow umgestellt. In den Dialogen "Speichern" und "Laden" ist OneDrive anwaehlbar - Klick startet ausschliesslich die Anmeldung und einen Verbindungstest (zeigt den Kontonamen). Es wird noch KEINE Datei tatsaechlich hoch-/heruntergeladen. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt (nicht das Bild selbst, nur Position+Zoom als winzige Textdaten). Laedt man dieselbe Datei erneut, wird automatisch wieder dieselbe Position/Zoomstufe angewendet. Wird sowohl im automatischen App-Speicher als auch in der JSON-Projektsicherung mitgefuehrt. PowerPoint/Bahn/Einzelbild-Export bleiben davon unberuehrt. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-03.3</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-03.4</span></p>
   </header>
 
   <div class="toolbar">
@@ -519,15 +519,15 @@ async function cloudStartLogin(provider, testOnly){
     );
     return;
   }
-  sessionStorage.setItem('schrittfolge-cloud-pending', provider);
-  if(testOnly){ sessionStorage.setItem('schrittfolge-cloud-test', provider); }
-  else { sessionStorage.removeItem('schrittfolge-cloud-test'); }
+  localStorage.setItem('schrittfolge-cloud-pending', provider);
+  if(testOnly){ localStorage.setItem('schrittfolge-cloud-test', provider); }
+  else { localStorage.removeItem('schrittfolge-cloud-test'); }
 
   if(provider === 'onedrive'){
     // Moderner PKCE Authorization-Code-Flow (statt veraltetem Implicit Flow)
     const verifier = pkceRandomString(64);
     const challenge = await pkceGenerateChallenge(verifier);
-    sessionStorage.setItem('schrittfolge-onedrive-verifier', verifier);
+    localStorage.setItem('schrittfolge-onedrive-verifier', verifier);
     const url = cfg.authUrl + '?client_id=' + encodeURIComponent(cfg.clientId) +
       '&response_type=code' +
       '&redirect_uri=' + encodeURIComponent(cfg.redirectUri) +
@@ -546,7 +546,7 @@ async function cloudStartLogin(provider, testOnly){
 // Tauscht bei OneDrive den Authorization-Code (PKCE) gegen ein Access-Token
 async function onedriveExchangeCodeForToken(code){
   const cfg = CLOUD_CONFIG.onedrive;
-  const verifier = sessionStorage.getItem('schrittfolge-onedrive-verifier') || '';
+  const verifier = localStorage.getItem('schrittfolge-onedrive-verifier') || '';
   const body = new URLSearchParams({
     client_id: cfg.clientId,
     grant_type: 'authorization_code',
@@ -564,21 +564,21 @@ async function onedriveExchangeCodeForToken(code){
   cloudSetToken('onedrive', data.access_token);
   if(data.refresh_token){ try{ localStorage.setItem(cfg.refreshKey, data.refresh_token); }catch(e){} }
   if(data.expires_in){ try{ localStorage.setItem(cfg.expiryKey, String(Date.now() + data.expires_in*1000)); }catch(e){} }
-  sessionStorage.removeItem('schrittfolge-onedrive-verifier');
+  localStorage.removeItem('schrittfolge-onedrive-verifier');
 }
 
 // Prüft beim Laden der Seite, ob wir gerade von einem OAuth-Redirect zurückkommen
 async function cloudCheckRedirect(){
-  const provider = sessionStorage.getItem('schrittfolge-cloud-pending');
+  const provider = localStorage.getItem('schrittfolge-cloud-pending');
   if(!provider) return;
-  const isTest = sessionStorage.getItem('schrittfolge-cloud-test') === provider;
+  const isTest = localStorage.getItem('schrittfolge-cloud-test') === provider;
 
   if(provider === 'onedrive'){
     const qs = new URLSearchParams(window.location.search);
     const code = qs.get('code');
     if(!code) return;
-    sessionStorage.removeItem('schrittfolge-cloud-pending');
-    sessionStorage.removeItem('schrittfolge-cloud-test');
+    localStorage.removeItem('schrittfolge-cloud-pending');
+    localStorage.removeItem('schrittfolge-cloud-test');
     history.replaceState(null, '', window.location.pathname);
     try{
       await onedriveExchangeCodeForToken(code);
@@ -596,8 +596,8 @@ async function cloudCheckRedirect(){
   const token = params.get('access_token');
   if(!token) return;
   cloudSetToken(provider, token);
-  sessionStorage.removeItem('schrittfolge-cloud-pending');
-  sessionStorage.removeItem('schrittfolge-cloud-test');
+  localStorage.removeItem('schrittfolge-cloud-pending');
+  localStorage.removeItem('schrittfolge-cloud-test');
   history.replaceState(null, '', window.location.pathname);
   flashStatus('pCloud verbunden');
 }
@@ -2517,7 +2517,7 @@ async function cloudSaveFlow(provider, fname, text){
     return;
   }
   if(!cloudGetToken(provider)){
-    sessionStorage.setItem('schrittfolge-cloud-resume', JSON.stringify({ fname, text, provider }));
+    localStorage.setItem('schrittfolge-cloud-resume', JSON.stringify({ fname, text, provider }));
     cloudStartLogin(provider);
     return;
   }
@@ -3418,7 +3418,7 @@ async function showCloudFileList(provider){
       return;
     }
     if(!cloudGetToken('onedrive')){
-      sessionStorage.setItem('schrittfolge-cloud-resume-import', provider);
+      localStorage.setItem('schrittfolge-cloud-resume-import', provider);
       cloudStartLogin(provider);
       return;
     }
@@ -3945,9 +3945,9 @@ cloudCheckRedirect();
 
 // Falls wir gerade von einem Cloud-Login zurückkommen: unterbrochenen Speichervorgang fortsetzen
 (function resumeCloudSaveIfPending(){
-  const pendingRaw = sessionStorage.getItem('schrittfolge-cloud-resume');
+  const pendingRaw = localStorage.getItem('schrittfolge-cloud-resume');
   if(pendingRaw){
-    sessionStorage.removeItem('schrittfolge-cloud-resume');
+    localStorage.removeItem('schrittfolge-cloud-resume');
     const pending = JSON.parse(pendingRaw);
     setTimeout(()=>{
       if(cloudGetToken(pending.provider)){
@@ -3955,9 +3955,9 @@ cloudCheckRedirect();
       }
     }, 300);
   }
-  const pendingImport = sessionStorage.getItem('schrittfolge-cloud-resume-import');
+  const pendingImport = localStorage.getItem('schrittfolge-cloud-resume-import');
   if(pendingImport){
-    sessionStorage.removeItem('schrittfolge-cloud-resume-import');
+    localStorage.removeItem('schrittfolge-cloud-resume-import');
     setTimeout(()=>{
       if(cloudGetToken(pendingImport)){
         showCloudFileList(pendingImport);
