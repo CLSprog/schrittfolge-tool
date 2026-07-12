@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-03.8 (12.07.2026) - Testversion (Unternummer): Echtes Speichern/Laden mit OneDrive aktiviert (Login-Test aus F1-03.2 bis F1-03.7 war erfolgreich auf Windows und Android). OneDrive-Button in "Speichern" ruft jetzt cloudSaveFlow('onedrive', ...) auf (laedt Datei tatsaechlich in den OneDrive-Ordner "Schrittfolge" hoch), OneDrive-Button in "Laden" ruft showCloudFileList('onedrive') auf (zeigt vorhandene Dateien im Ordner "Schrittfolge" zur Auswahl, laedt gewaehlte Datei herunter). Zusatz-Fixes: onedriveListFiles behandelt einen noch nicht existierenden Ordner (erster Aufruf, noch keine Datei gespeichert) jetzt als leere Liste statt als Fehler. Race Condition beim Fortsetzen eines unterbrochenen Speicher-/Ladevorgangs nach Login behoben (vorher: fixe 300ms-Wartezeit nach Redirect, jetzt: sauberes await auf cloudCheckRedirect() vor Fortsetzung). Fehlermeldungen beim Speichern/Laden zeigen jetzt den genauen technischen Fehlertext an (statt nur "fehlgeschlagen"). Sonst unveraendert zu F1-03.7: PKCE Authorization-Code-Flow, localStorage-basierte Zwischenspeicherung, feste Redirect-URI, Notfall-alert() bei unerwarteten Fehlern. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt. -->
+<!-- Schrittfolge-Tool F1-04.0 (12.07.2026) - OFFIZIELLE VERSION (nach F1-03.1). Zusammenfassung der OneDrive-Integration aus den Testversionen F1-03.2 bis F1-03.8: Azure App-Registrierung eingerichtet, PKCE Authorization-Code-Flow fuer Login implementiert (moderner Standard statt veraltetem Implicit Flow), OneDrive in den Dialogen "Speichern" und "Laden" nutzbar - speichert/laedt Dateien im Ordner "Schrittfolge" im OneDrive des Benutzers. Bestaetigt funktionsfaehig auf Windows (Login) und Android (Login, Speichern, Laden). iOS (Partnerin) noch nicht getestet - erste praktische Nutzung dort bitte mit Vorsicht/Ruecksprache. Unterwegs behobene technische Probleme: Redirect-URI fest eingetragen statt dynamisch berechnet, localStorage statt sessionStorage fuer Login-Zwischenspeicherung (Android-Fensterwechsel), history.replaceState gegen Fehler abgesichert (behob den eigentlichen Show-Stopper-Bug auf Android), Notfall-alert() bei unerwarteten Fehlern, robustere Fehlerbehandlung bei leerem/neuem OneDrive-Ordner. Naechster geplanter Ausbauschritt (noch nicht begonnen): freie Ordnerauswahl statt fixem Ordner "Schrittfolge", sowohl beim Speichern als auch beim Laden. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt (nicht das Bild selbst, nur Position+Zoom als winzige Textdaten). Laedt man dieselbe Datei erneut, wird automatisch wieder dieselbe Position/Zoomstufe angewendet. Wird sowohl im automatischen App-Speicher als auch in der JSON-Projektsicherung mitgefuehrt. PowerPoint/Bahn/Einzelbild-Export bleiben davon unberuehrt. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-03.8</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.0</span></p>
   </header>
 
   <div class="toolbar">
