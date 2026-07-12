@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-03.4 (12.07.2026) - Testversion (Unternummer): Bugfix zu F1-03.3 - auf Android (installierte App/PWA) sprang der OneDrive-Login-Vorgang oft in ein separates Browser-Fenster; dessen sessionStorage ist getrennt vom ursprünglichen App-Fenster, daher ging der Zwischenzustand (angemeldeter Anbieter, PKCE-Code-Verifier) beim Rücksprung verloren -> Login-Fenster blitzte kurz auf, verschwand wieder, keine Bestätigung. Zwischenspeicherung fuer den Login-Ablauf jetzt auf localStorage umgestellt (bleibt fensteruebergreifend erhalten). Sonst unveraendert zu F1-03.3: Redirect-URI fuer OneDrive fest eingetragen (https://clsprog.github.io/schrittfolge-tool/). OneDrive-Anbindung Schritt 1 - Azure App-Registrierung abgeschlossen, Client-ID eingetragen, Login-Mechanismus auf modernen PKCE Authorization-Code-Flow umgestellt. In den Dialogen "Speichern" und "Laden" ist OneDrive anwaehlbar - Klick startet ausschliesslich die Anmeldung und einen Verbindungstest (zeigt den Kontonamen). Es wird noch KEINE Datei tatsaechlich hoch-/heruntergeladen. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt (nicht das Bild selbst, nur Position+Zoom als winzige Textdaten). Laedt man dieselbe Datei erneut, wird automatisch wieder dieselbe Position/Zoomstufe angewendet. Wird sowohl im automatischen App-Speicher als auch in der JSON-Projektsicherung mitgefuehrt. PowerPoint/Bahn/Einzelbild-Export bleiben davon unberuehrt. -->
+<!-- Schrittfolge-Tool F1-03.5 (12.07.2026) - Testversion (Unternummer): Diagnose-Fix zu F1-03.4 - beim OneDrive-Login-Ruecksprung auf Android kam offenbar der Code in der URL an, aber die Verarbeitung brach still ab (keine Bestaetigung, kein Fehler sichtbar), vermutlich weil der lokale Zwischenspeicher (Pending-Flag) beim Ruecksprung leer war und die Funktion deshalb sofort und stillschweigend abbrach, OHNE die URL nach einem Code zu durchsuchen. Cloud-Check-Redirect komplett umgebaut: prueft JETZT ZUERST die URL auf Code/Fehler (unabhaengig vom Zwischenspeicher) und zeigt in JEDEM Fall eine sichtbare Rueckmeldung (Erfolg, Fehler, oder "Sitzungsdaten fehlen") - kein stilles Abbrechen mehr moeglich. Das macht das naechste Fehlerbild sichtbar/eindeutig auswertbar. Sonst unveraendert zu F1-03.4: Zwischenspeicherung fuer Login-Ablauf auf localStorage (fensteruebergreifend). Redirect-URI fuer OneDrive fest eingetragen (https://clsprog.github.io/schrittfolge-tool/). PKCE Authorization-Code-Flow. In den Dialogen "Speichern" und "Laden" ist OneDrive anwaehlbar - Klick startet ausschliesslich Anmeldung + Verbindungstest, noch kein echtes Speichern/Laden. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-03.4</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-03.5</span></p>
   </header>
 
   <div class="toolbar">
@@ -568,29 +568,49 @@ async function onedriveExchangeCodeForToken(code){
 }
 
 // Prüft beim Laden der Seite, ob wir gerade von einem OAuth-Redirect zurückkommen
+// WICHTIG: bricht NIE stillschweigend ab - zeigt immer eine sichtbare Rückmeldung,
+// damit Fehler auf dem Handy sichtbar werden (auch wenn der Zwischenspeicher leer ist).
 async function cloudCheckRedirect(){
-  const provider = localStorage.getItem('schrittfolge-cloud-pending');
-  if(!provider) return;
-  const isTest = localStorage.getItem('schrittfolge-cloud-test') === provider;
+  const qs = new URLSearchParams(window.location.search);
+  const code = qs.get('code');
+  const oauthError = qs.get('error_description') || qs.get('error');
 
-  if(provider === 'onedrive'){
-    const qs = new URLSearchParams(window.location.search);
-    const code = qs.get('code');
-    if(!code) return;
+  // Fall A: Microsoft hat einen Fehler zurückgegeben (z.B. abgelehnte Anmeldung)
+  if(oauthError){
+    history.replaceState(null, '', window.location.pathname);
     localStorage.removeItem('schrittfolge-cloud-pending');
     localStorage.removeItem('schrittfolge-cloud-test');
+    showConfirm('OneDrive-Anmeldung von Microsoft abgelehnt:\n\n' + oauthError, ()=>{}, 'Verstanden');
+    return;
+  }
+
+  // Fall B: Ein Code ist da (PKCE-Rücksprung von OneDrive) - IMMER verarbeiten,
+  // auch wenn der lokale Zwischenspeicher (z.B. durch separates Browser-Fenster) leer ist.
+  if(code){
+    const provider = localStorage.getItem('schrittfolge-cloud-pending') || 'onedrive';
+    const isTest = localStorage.getItem('schrittfolge-cloud-test') === provider;
+    const verifier = localStorage.getItem('schrittfolge-onedrive-verifier');
     history.replaceState(null, '', window.location.pathname);
+    localStorage.removeItem('schrittfolge-cloud-pending');
+    localStorage.removeItem('schrittfolge-cloud-test');
+
+    if(!verifier){
+      showConfirm('OneDrive-Anmeldung: Der Code kam an, aber die Sitzungsdaten (PKCE-Verifier) fehlen. Das deutet darauf hin, dass die Anmeldung in einem getrennten Browserfenster ohne gemeinsamen Speicher lief. Bitte nochmal versuchen.', ()=>{}, 'Verstanden');
+      return;
+    }
     try{
       await onedriveExchangeCodeForToken(code);
       if(isTest){ await cloudTestLogin('onedrive', true); }
-      else { flashStatus('OneDrive verbunden'); }
+      else { showConfirm('✅ OneDrive verbunden.', ()=>{}, 'Super'); }
     }catch(e){
-      showConfirm('OneDrive-Anmeldung fehlgeschlagen: ' + e.message, ()=>{}, 'Verstanden');
+      showConfirm('OneDrive-Anmeldung fehlgeschlagen beim Token-Austausch: ' + e.message, ()=>{}, 'Verstanden');
     }
     return;
   }
 
-  // pCloud (weiterhin Implicit Flow, unverändert)
+  // Fall C: pCloud (weiterhin Implicit Flow, unverändert)
+  const provider = localStorage.getItem('schrittfolge-cloud-pending');
+  if(!provider || provider === 'onedrive') return;
   if(!window.location.hash) return;
   const params = new URLSearchParams(window.location.hash.substring(1));
   const token = params.get('access_token');
