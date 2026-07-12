@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-03.5 (12.07.2026) - Testversion (Unternummer): Diagnose-Fix zu F1-03.4 - beim OneDrive-Login-Ruecksprung auf Android kam offenbar der Code in der URL an, aber die Verarbeitung brach still ab (keine Bestaetigung, kein Fehler sichtbar), vermutlich weil der lokale Zwischenspeicher (Pending-Flag) beim Ruecksprung leer war und die Funktion deshalb sofort und stillschweigend abbrach, OHNE die URL nach einem Code zu durchsuchen. Cloud-Check-Redirect komplett umgebaut: prueft JETZT ZUERST die URL auf Code/Fehler (unabhaengig vom Zwischenspeicher) und zeigt in JEDEM Fall eine sichtbare Rueckmeldung (Erfolg, Fehler, oder "Sitzungsdaten fehlen") - kein stilles Abbrechen mehr moeglich. Das macht das naechste Fehlerbild sichtbar/eindeutig auswertbar. Sonst unveraendert zu F1-03.4: Zwischenspeicherung fuer Login-Ablauf auf localStorage (fensteruebergreifend). Redirect-URI fuer OneDrive fest eingetragen (https://clsprog.github.io/schrittfolge-tool/). PKCE Authorization-Code-Flow. In den Dialogen "Speichern" und "Laden" ist OneDrive anwaehlbar - Klick startet ausschliesslich Anmeldung + Verbindungstest, noch kein echtes Speichern/Laden. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt. -->
+<!-- Schrittfolge-Tool F1-03.6 (12.07.2026) - Testversion (Unternummer): Diagnose-Fix zu F1-03.5 - trotz der Absicherung in F1-03.5 blieb der OneDrive-Test auf einem Android-Geraet weiterhin komplett stumm (kein Tab, keine Meldung, kein Fehler) - das deutet auf einen unbehandelten JavaScript-Fehler/eine "unhandled promise rejection" IRGENDWO im Ablauf hin, die selbst die eigene Fehleranzeige (showConfirm) umgangen hat. Als letzte Sicherheitsstufe wurde jetzt ueberall im OneDrive-Login-Pfad (cloudStartLogin, cloudTestLogin, cloudCheckRedirect, beide Button-Klicks) ein zusaetzliches try/catch mit normalem Browser-alert() als Notfall-Rueckmeldung ergaenzt - das kann technisch nicht mehr ausbleiben, unabhaengig von Fehlern in der eigenen Dialogfunktion. Damit sollte beim naechsten Test in JEDEM Fall irgendeine Meldung erscheinen. Sonst unveraendert zu F1-03.5: Cloud-Check-Redirect prueft URL zuerst. localStorage statt sessionStorage. Redirect-URI fest eingetragen. PKCE Authorization-Code-Flow. OneDrive in Speichern/Laden-Dialogen anwaehlbar, testet nur Anmeldung, noch kein echtes Speichern/Laden. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-03.5</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-03.6</span></p>
   </header>
 
   <div class="toolbar">
@@ -509,6 +509,7 @@ async function pkceGenerateChallenge(verifier){
 
 // Startet den OAuth-Login für den gewünschten Cloud-Anbieter (Redirect-Flow)
 async function cloudStartLogin(provider, testOnly){
+ try{
   const cfg = CLOUD_CONFIG[provider];
   if(!cloudIsConfigured(provider)){
     showConfirm(
@@ -541,6 +542,9 @@ async function cloudStartLogin(provider, testOnly){
       '&redirect_uri=' + encodeURIComponent(cfg.redirectUri);
     window.location.href = url;
   }
+ }catch(e){
+  alert('Fehler beim Starten der OneDrive-Anmeldung:\n' + (e && e.message ? e.message : e));
+ }
 }
 
 // Tauscht bei OneDrive den Authorization-Code (PKCE) gegen ein Access-Token
@@ -624,6 +628,7 @@ async function cloudCheckRedirect(){
 
 // Testet nur die Verbindung zu OneDrive (Anmeldung + Kontoname), OHNE eine Datei zu speichern/laden
 async function cloudTestLogin(provider, alreadyJustLoggedIn){
+ try{
   if(provider !== 'onedrive'){ return; }
   if(!cloudIsConfigured(provider)){
     showConfirm('OneDrive ist noch nicht eingerichtet (fehlende Client-ID).', ()=>{}, 'Verstanden');
@@ -651,6 +656,9 @@ async function cloudTestLogin(provider, alreadyJustLoggedIn){
   }catch(e){
     showConfirm('OneDrive-Verbindungstest fehlgeschlagen: ' + e.message, ()=>{}, 'Verstanden');
   }
+ }catch(e){
+  alert('Unerwarteter Fehler beim OneDrive-Verbindungstest:\n' + (e && e.message ? e.message : e));
+ }
 }
 
 // Lädt eine Datei in OneDrive hoch (in den App-Ordner "Schrittfolge")
@@ -2477,7 +2485,7 @@ function showStorageTargetDialog(exportType){
   btnOnedrive.innerHTML = '☁️ OneDrive <span style="font-size:11px;font-weight:400;">(Testphase: nur Anmeldung)</span>';
   btnOnedrive.addEventListener('click', async ()=>{
     document.body.removeChild(overlay);
-    await cloudTestLogin('onedrive');
+    try{ await cloudTestLogin('onedrive'); }catch(e){ alert('Fehler: ' + (e && e.message ? e.message : e)); }
   });
 
   const btnCancel = document.createElement('button');
@@ -3403,7 +3411,7 @@ function showImportSourceDialog(){
   btnOnedrive.innerHTML = '☁️ OneDrive <span style="font-size:11px;font-weight:400;">(Testphase: nur Anmeldung)</span>';
   btnOnedrive.addEventListener('click', async ()=>{
     document.body.removeChild(overlay);
-    await cloudTestLogin('onedrive');
+    try{ await cloudTestLogin('onedrive'); }catch(e){ alert('Fehler: ' + (e && e.message ? e.message : e)); }
   });
 
   const btnCancel = document.createElement('button');
@@ -3961,7 +3969,7 @@ document.getElementById('b-print').addEventListener('click', showPrintChoiceDial
 
 setTool('move');
 loadState();
-cloudCheckRedirect();
+cloudCheckRedirect().catch(function(e){ alert('Unerwarteter Fehler beim Prüfen der Anmeldung:\n' + (e && e.message ? e.message : e)); });
 
 // Falls wir gerade von einem Cloud-Login zurückkommen: unterbrochenen Speichervorgang fortsetzen
 (function resumeCloudSaveIfPending(){
