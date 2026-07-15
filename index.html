@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.2 (14.07.2026) – Gesamtbild-Fix: Canvas-Breite auf MAX_PPTX_CANVAS_W begrenzt (wie PPTX-Export), verhindert Speicherabsturz bei vielen Sequenzen. Basis: F1-04.0. --> Zusammenfassung der OneDrive-Integration aus den Testversionen F1-03.2 bis F1-03.8: Azure App-Registrierung eingerichtet, PKCE Authorization-Code-Flow fuer Login implementiert (moderner Standard statt veraltetem Implicit Flow), OneDrive in den Dialogen "Speichern" und "Laden" nutzbar - speichert/laedt Dateien im Ordner "Schrittfolge" im OneDrive des Benutzers. Bestaetigt funktionsfaehig auf Windows (Login) und Android (Login, Speichern, Laden). iOS (Partnerin) noch nicht getestet - erste praktische Nutzung dort bitte mit Vorsicht/Ruecksprache. Unterwegs behobene technische Probleme: Redirect-URI fest eingetragen statt dynamisch berechnet, localStorage statt sessionStorage fuer Login-Zwischenspeicherung (Android-Fensterwechsel), history.replaceState gegen Fehler abgesichert (behob den eigentlichen Show-Stopper-Bug auf Android), Notfall-alert() bei unerwarteten Fehlern, robustere Fehlerbehandlung bei leerem/neuem OneDrive-Ordner. Naechster geplanter Ausbauschritt (noch nicht begonnen): freie Ordnerauswahl statt fixem Ordner "Schrittfolge", sowohl beim Speichern als auch beim Laden. Vorherige Version F1-03.1: Hintergrundbild-Position pro Dateiname gemerkt (nicht das Bild selbst, nur Position+Zoom als winzige Textdaten). Laedt man dieselbe Datei erneut, wird automatisch wieder dieselbe Position/Zoomstufe angewendet. Wird sowohl im automatischen App-Speicher als auch in der JSON-Projektsicherung mitgefuehrt. PowerPoint/Bahn/Einzelbild-Export bleiben davon unberuehrt. -->
+<!-- Schrittfolge-Tool F1-04.4 (14.07.2026) - TESTVERSION. Basis: F1-04.2 (Gesamtbild-Fix: Canvas-Breite auf MAX_PPTX_CANVAS_W begrenzt, aus parallelem Chat übernommen). In F1-04.3 ergänzt: (1) Freie Ordnerauswahl für OneDrive - sowohl beim Speichern als auch beim Laden erscheint ein Ordner-Browser (Navigation durch die OneDrive-Ordnerstruktur, "Diesen Ordner waehlen"); EIN gemeinsamer "zuletzt verwendeter Ordner" wird als Startpunkt/Vorschlag fuer Speichern UND Laden gemerkt, erscheint aber bei JEDEM Vorgang erneut (kein automatischer Speicherort ohne sichtbare Bestaetigung). Neue Ordner direkt anlegen: bewusst noch nicht enthalten. (2) Automatischer Token-Refresh: Der beim Login erhaltene Refresh-Token wurde bisher gespeichert, aber nie genutzt - lief das Access-Token ab (60-90 Min bei Microsoft), scheiterte jeder Speichern/Laden-Versuch mit HTTP 401 ohne Erholung. Zentrale onedriveFetch()-Huelle fuer alle Graph-Aufrufe: bei 401 wird still per Refresh-Token ein neues Access-Token geholt und der Aufruf einmal wiederholt; schlaegt auch das fehl, wird ausgeloggt (naechster Versuch startet den normalen Login-Dialog). Neu in F1-04.4: (3) Umbenennung "Lokal (Geraet)" zu schlicht "Speichern"/"Laden" in beiden Dialogen, da dieser Weg ueber die native Datei-Auswahl auf Windows/Mac ohnehin automatisch OneDrive und pCloud erreicht (als Laufwerk eingebunden) - "Lokal" war irrefuehrend; Laden nutzt jetzt zusaetzlich showOpenFilePicker() falls verfuegbar (symmetrisch zu showSaveFilePicker() beim Speichern). (4) Bild-Laden-Filter gelockert (image/*,*/*) + zweistufige Validierung (gemeldeter Dateityp + echter Ladeversuch), damit z.B. OneDrive als Quelle im Bild-Laden-Dialog erscheint, ohne dass versehentlich Nicht-Bilder uebernommen werden koennen. -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.2</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.4</span></p>
   </header>
 
   <div class="toolbar">
@@ -237,7 +237,7 @@
       <button id="b-clear" title="Alles löschen"><span class="icon-char">🗑️</span></button>
     </div>
   </div>
-  <input type="file" id="bg-file-input" accept="image/*" style="display:none">
+  <input type="file" id="bg-file-input" accept="image/*,*/*" style="display:none">
   <div class="toolbar" style="border-top:1px solid var(--border);">
     <div class="group" style="border-left:none;padding-left:0;margin-left:0;flex:1;">
       <span class="icon-char" style="font-size:14px;">🗂️</span>
@@ -640,15 +640,7 @@ async function cloudTestLogin(provider, alreadyJustLoggedIn){
     return;
   }
   try{
-    const res = await fetch('https://graph.microsoft.com/v1.0/me', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if(res.status === 401){
-      // Token abgelaufen/ungültig -> erneut anmelden
-      cloudLogout(provider);
-      await cloudStartLogin(provider, true);
-      return;
-    }
+    const res = await onedriveFetch('https://graph.microsoft.com/v1.0/me');
     if(!res.ok) throw new Error('Status ' + res.status);
     const me = await res.json();
     const name = me.displayName || me.userPrincipalName || 'unbekannt';
@@ -661,40 +653,209 @@ async function cloudTestLogin(provider, alreadyJustLoggedIn){
  }
 }
 
-// Lädt eine Datei in OneDrive hoch (in den App-Ordner "Schrittfolge")
-async function onedriveUpload(filename, content){
-  const token = cloudGetToken('onedrive');
+// --- Automatischer Token-Refresh (ab F1-04.3) ---
+// Bisher wurde ein Refresh-Token zwar gespeichert (bei jedem Login), aber nie benutzt.
+// Lief das Access-Token ab (typisch nach 60-90 Min bei Microsoft), scheiterte JEDER
+// weitere Speichern/Laden-Versuch mit 401 - ohne Erholung, bis man sich manuell neu
+// anmeldete. onedriveRefreshToken holt sich still im Hintergrund ein neues Access-Token.
+async function onedriveRefreshToken(){
+  const cfg = CLOUD_CONFIG.onedrive;
+  const refreshToken = localStorage.getItem(cfg.refreshKey);
+  if(!refreshToken) return false;
+  try{
+    const body = new URLSearchParams({
+      client_id: cfg.clientId,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      redirect_uri: cfg.redirectUri,
+      scope: cfg.scope
+    });
+    const res = await fetch(cfg.tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    });
+    if(!res.ok) return false;
+    const data = await res.json();
+    if(!data.access_token) return false;
+    cloudSetToken('onedrive', data.access_token);
+    if(data.refresh_token){ try{ localStorage.setItem(cfg.refreshKey, data.refresh_token); }catch(e){} }
+    if(data.expires_in){ try{ localStorage.setItem(cfg.expiryKey, String(Date.now() + data.expires_in*1000)); }catch(e){} }
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+// Zentrale fetch-Hülle für ALLE OneDrive-Graph-Aufrufe: hängt das Bearer-Token an und
+// versucht bei 401 EINMAL still einen Token-Refresh, bevor der Aufruf wiederholt wird.
+// Schlägt auch das fehl (Refresh-Token selbst abgelaufen/ungültig), wird ausgeloggt und
+// ein klarer Fehler geworfen - der nächste Speichern/Laden-Versuch startet dann normal
+// den Login-Dialog neu (weil cloudGetToken() dann wieder leer ist).
+async function onedriveFetch(url, options){
+  options = options || {};
+  let token = cloudGetToken('onedrive');
   if(!token) throw new Error('nicht eingeloggt');
-  const url = 'https://graph.microsoft.com/v1.0/me/drive/root:/Schrittfolge/' + encodeURIComponent(filename) + ':/content';
-  const res = await fetch(url, {
+  options.headers = Object.assign({}, options.headers || {}, { 'Authorization': 'Bearer ' + token });
+  let res = await fetch(url, options);
+  if(res.status === 401){
+    const refreshed = await onedriveRefreshToken();
+    if(refreshed){
+      token = cloudGetToken('onedrive');
+      options.headers = Object.assign({}, options.headers || {}, { 'Authorization': 'Bearer ' + token });
+      res = await fetch(url, options);
+    }
+    if(res.status === 401){
+      cloudLogout('onedrive');
+      throw new Error('Sitzung abgelaufen, bitte OneDrive erneut verbinden (Login startet beim nächsten Versuch automatisch)');
+    }
+  }
+  return res;
+}
+
+// Baut die Graph-API-URL für den Inhalt eines Ordners (leerer Pfad = Hauptverzeichnis)
+function onedriveGraphChildrenUrl(path){
+  if(!path) return 'https://graph.microsoft.com/v1.0/me/drive/root/children';
+  return 'https://graph.microsoft.com/v1.0/me/drive/root:/' + path.split('/').map(encodeURIComponent).join('/') + ':/children';
+}
+// Baut die Graph-API-URL für den Inhalt einer Datei in einem bestimmten Ordner
+function onedriveGraphContentUrl(path, filename){
+  const fullPath = path ? (path + '/' + filename) : filename;
+  return 'https://graph.microsoft.com/v1.0/me/drive/root:/' + fullPath.split('/').map(encodeURIComponent).join('/') + ':/content';
+}
+
+// Listet Unterordner eines OneDrive-Pfads (für den Ordner-Browser)
+async function onedriveListFolders(path){
+  const url = onedriveGraphChildrenUrl(path) + '?$select=name,folder,id';
+  const res = await onedriveFetch(url);
+  if(res.status === 404){ return []; } // Ordner existiert (noch) nicht
+  if(!res.ok) throw new Error('Abruf fehlgeschlagen: ' + res.status);
+  const data = await res.json();
+  return (data.value || []).filter(f => f.folder).sort((a,b)=> a.name.localeCompare(b.name, 'de'));
+}
+
+// Lädt eine Datei in OneDrive hoch (in den gewählten Ordner)
+async function onedriveUpload(filename, content, folderPath){
+  const url = onedriveGraphContentUrl(folderPath || '', filename);
+  const res = await onedriveFetch(url, {
     method: 'PUT',
-    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: content
   });
   if(!res.ok) throw new Error('Upload fehlgeschlagen: ' + res.status);
   return res.json();
 }
 
-// Listet Dateien im Schrittfolge-Ordner von OneDrive
-async function onedriveListFiles(){
-  const token = cloudGetToken('onedrive');
-  if(!token) throw new Error('nicht eingeloggt');
-  const url = 'https://graph.microsoft.com/v1.0/me/drive/root:/Schrittfolge:/children';
-  const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+// Listet Dateien im gewählten Ordner von OneDrive
+async function onedriveListFiles(folderPath){
+  const url = onedriveGraphChildrenUrl(folderPath || '');
+  const res = await onedriveFetch(url);
   if(res.status === 404){ return []; } // Ordner existiert noch nicht -> noch keine Datei gespeichert
   if(!res.ok) throw new Error('Abruf fehlgeschlagen: ' + res.status);
   const data = await res.json();
   return (data.value || []).filter(f => f.name.endsWith('.json'));
 }
 
-// Lädt den Inhalt einer Datei aus OneDrive
-async function onedriveDownload(filename){
-  const token = cloudGetToken('onedrive');
-  if(!token) throw new Error('nicht eingeloggt');
-  const url = 'https://graph.microsoft.com/v1.0/me/drive/root:/Schrittfolge/' + encodeURIComponent(filename) + ':/content';
-  const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+// Lädt den Inhalt einer Datei aus dem gewählten Ordner in OneDrive
+async function onedriveDownload(filename, folderPath){
+  const url = onedriveGraphContentUrl(folderPath || '', filename);
+  const res = await onedriveFetch(url);
   if(!res.ok) throw new Error('Download fehlgeschlagen: ' + res.status);
   return res.text();
+}
+
+// Merkt sich EINEN gemeinsamen "zuletzt verwendeten Ordner" für Speichern UND Laden.
+// Dient nur als Vorschlag/Startpunkt beim nächsten Öffnen des Ordner-Browsers, nie als
+// automatischer Speicherort ohne sichtbare Bestätigung.
+function getLastOneDriveFolder(){
+  try{ return localStorage.getItem('schrittfolge-onedrive-lastfolder') || 'Schrittfolge'; }
+  catch(e){ return 'Schrittfolge'; }
+}
+function setLastOneDriveFolder(path){
+  try{ localStorage.setItem('schrittfolge-onedrive-lastfolder', path || ''); }catch(e){}
+}
+
+// Zeigt einen Ordner-Browser für OneDrive. Ruft onChoose(path) auf, sobald der Nutzer
+// einen Ordner bestätigt (path ist '' für das Hauptverzeichnis). mode ist nur für den
+// Dialogtitel ('save' oder 'load').
+function showOneDriveFolderPicker(startPath, mode, onChoose){
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;max-height:75vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  let currentPath = startPath || '';
+
+  async function render(){
+    box.innerHTML = '';
+
+    const title = document.createElement('p');
+    title.textContent = (mode === 'save' ? 'Ordner zum Speichern wählen' : 'Ordner zum Laden wählen');
+    title.style.cssText = 'margin:0 0 4px;font-size:15px;font-weight:600;text-align:center;';
+    box.appendChild(title);
+
+    const pathLabel = document.createElement('p');
+    pathLabel.textContent = '📁 ' + (currentPath ? currentPath : '(Hauptverzeichnis)');
+    pathLabel.style.cssText = 'margin:0 0 12px;font-size:12px;color:#666;text-align:center;word-break:break-all;';
+    box.appendChild(pathLabel);
+
+    const loading = document.createElement('p');
+    loading.textContent = 'Lade Ordner...';
+    loading.style.cssText = 'font-size:13px;color:#888;text-align:center;';
+    box.appendChild(loading);
+
+    let folders = [];
+    try{
+      folders = await onedriveListFolders(currentPath);
+    }catch(e){
+      const err = document.createElement('p');
+      err.textContent = 'Ordner konnten nicht geladen werden: ' + (e && e.message ? e.message : e);
+      err.style.cssText = 'font-size:12px;color:#c00;text-align:center;';
+      box.appendChild(err);
+    }
+    if(box.contains(loading)) box.removeChild(loading);
+
+    if(currentPath){
+      const btnUp = document.createElement('button');
+      btnUp.textContent = '⬆️ Nach oben';
+      btnUp.style.cssText = 'width:100%;margin-bottom:8px;padding:10px;border:none;border-radius:8px;background:#f2f2f2;color:#222;font-size:13px;text-align:left;';
+      btnUp.addEventListener('click', ()=>{
+        const parts = currentPath.split('/');
+        parts.pop();
+        currentPath = parts.join('/');
+        render();
+      });
+      box.appendChild(btnUp);
+    }
+
+    folders.forEach(f=>{
+      const btn = document.createElement('button');
+      btn.textContent = '📁 ' + f.name;
+      btn.style.cssText = 'width:100%;margin-bottom:8px;padding:10px;border:none;border-radius:8px;background:#f2f2f2;color:#222;font-size:13px;text-align:left;';
+      btn.addEventListener('click', ()=>{
+        currentPath = currentPath ? (currentPath + '/' + f.name) : f.name;
+        render();
+      });
+      box.appendChild(btn);
+    });
+
+    const btnChoose = document.createElement('button');
+    btnChoose.textContent = '✅ Diesen Ordner wählen';
+    btnChoose.style.cssText = 'width:100%;margin-top:6px;margin-bottom:8px;padding:12px;border:none;border-radius:10px;background:#0078d4;color:#fff;font-size:14px;font-weight:600;';
+    btnChoose.addEventListener('click', ()=>{
+      document.body.removeChild(overlay);
+      onChoose(currentPath);
+    });
+    box.appendChild(btnChoose);
+
+    const btnCancel = document.createElement('button');
+    btnCancel.textContent = 'Abbrechen';
+    btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;';
+    btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
+    box.appendChild(btnCancel);
+  }
+
+  render();
 }
 
 // pCloud-Äquivalente (Struktur vorbereitet, Endpunkte nach Registrierung zu prüfen)
@@ -2116,6 +2277,14 @@ document.getElementById('b-bg-load').addEventListener('click', ()=>{
 document.getElementById('bg-file-input').addEventListener('change', (e)=>{
   const file = e.target.files[0];
   if(!file) return;
+  // Stufe 1: gemeldeter Dateityp (falls vorhanden) muss "image/..." sein - schnelle Ablehnung
+  // offensichtlich falscher Dateien (PDF, Word, Excel, ...). Manche Quellen melden aber gar
+  // keinen/einen falschen Typ - die eigentliche, verlässliche Prüfung ist Stufe 2 unten.
+  if(file.type && !file.type.startsWith('image/')){
+    e.target.value = '';
+    showConfirm('Das ist kein gültiges Bild (erkannter Dateityp: ' + file.type + ').', ()=>{}, 'Verstanden');
+    return;
+  }
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = ()=>{
@@ -2145,6 +2314,12 @@ document.getElementById('bg-file-input').addEventListener('change', (e)=>{
     bgUpdateButtons();
     draw();
     saveState();
+  };
+  // Stufe 2: echter Ladeversuch schlägt fehl -> Datei war (trotz evtl. unauffälligem Typ) kein
+  // gültiges Bild. Das greift zuverlässig, unabhängig davon was die Datei behauptet zu sein.
+  img.onerror = ()=>{
+    URL.revokeObjectURL(url);
+    showConfirm('Diese Datei ist kein gültiges Bild und konnte nicht geladen werden.', ()=>{}, 'Verstanden');
   };
   img.src = url;
   e.target.value = '';
@@ -2440,6 +2615,33 @@ async function saveTextLocal(fname, text){
   }
 }
 
+// Prüft ob der Browser einen echten "Datei öffnen"-Dialog (moderne API) unterstützt
+function supportsOpenFilePicker(){
+  return typeof window !== 'undefined' && typeof window.showOpenFilePicker === 'function';
+}
+
+// Lädt eine Projektdatei lokal: mit "Datei öffnen"-Dialog falls verfügbar (zeigt auf Windows/Mac
+// automatisch auch OneDrive/pCloud, da als Laufwerk eingebunden), sonst klassischer Datei-Input
+// (der auf Android/iOS bzw. älteren Browsern den Systemdialog öffnet).
+async function loadTextLocal(){
+  if(supportsOpenFilePicker()){
+    try{
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'Schrittfolge-Projekt (JSON)', accept: {'application/json': ['.json']} }],
+        excludeAcceptAllOption: false,
+        multiple: false
+      });
+      const file = await handle.getFile();
+      importProjectData(file);
+    }catch(e){
+      if(e && e.name === 'AbortError'){ return; } // Nutzer hat abgebrochen, kein Fehler
+      showConfirm('Lokales Laden fehlgeschlagen: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden');
+    }
+  } else {
+    document.getElementById('file-import').click();
+  }
+}
+
 // Zweiter Dialog: Speicherort wählen (Lokal mit Speichern-unter / GitHub / pCloud, letztere derzeit ausgegraut)
 function showStorageTargetDialog(exportType){
   const { data, fname } = buildExportPayload(exportType);
@@ -2460,7 +2662,7 @@ function showStorageTargetDialog(exportType){
 
   const btnLocal = document.createElement('button');
   btnLocal.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#eee;color:#333;font-size:14px;font-weight:600;';
-  btnLocal.innerHTML = '💾 Lokal (Gerät)';
+  btnLocal.innerHTML = '💾 Speichern';
   btnLocal.addEventListener('click', async ()=>{
     document.body.removeChild(overlay);
     if(IN_CLAUDE){ showTextOverlay(text); }
@@ -2550,13 +2752,18 @@ async function cloudSaveFlow(provider, fname, text){
     cloudStartLogin(provider);
     return;
   }
-  try{
-    flashStatus('OneDrive: speichere...');
-    await onedriveUpload(fname, text);
-    flashStatus('In OneDrive gespeichert: ' + fname);
-  }catch(e){
-    showConfirm('OneDrive-Speichern fehlgeschlagen: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden');
-  }
+  // Ordner-Browser: bei JEDEM Speichern erneut anzeigen, Startpunkt ist der zuletzt
+  // verwendete Ordner (gemeinsam mit dem Laden-Dialog), aber frei änderbar.
+  showOneDriveFolderPicker(getLastOneDriveFolder(), 'save', async (folderPath)=>{
+    setLastOneDriveFolder(folderPath);
+    try{
+      flashStatus('OneDrive: speichere...');
+      await onedriveUpload(fname, text, folderPath);
+      flashStatus('In OneDrive gespeichert: ' + fname);
+    }catch(e){
+      showConfirm('OneDrive-Speichern fehlgeschlagen: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden');
+    }
+  });
 }
 
 function exportProjectData(){
@@ -3387,10 +3594,10 @@ function showImportSourceDialog(){
 
   const btnLocal = document.createElement('button');
   btnLocal.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#eee;color:#333;font-size:14px;font-weight:600;';
-  btnLocal.innerHTML = '💾 Lokal (Gerät)';
-  btnLocal.addEventListener('click', ()=>{
+  btnLocal.innerHTML = '📂 Laden';
+  btnLocal.addEventListener('click', async ()=>{
     document.body.removeChild(overlay);
-    document.getElementById('file-import').click();
+    await loadTextLocal();
   });
 
   const btnGithub = document.createElement('button');
@@ -3451,59 +3658,84 @@ async function showCloudFileList(provider){
       cloudStartLogin(provider);
       return;
     }
+    // Ordner-Browser: bei JEDEM Laden erneut anzeigen, Startpunkt ist der zuletzt
+    // verwendete Ordner (gemeinsam mit dem Speichern-Dialog), aber frei änderbar.
+    showOneDriveFolderPicker(getLastOneDriveFolder(), 'load', async (folderPath)=>{
+      setLastOneDriveFolder(folderPath);
+      flashStatus('Lade Dateiliste...');
+      try{
+        const files = await onedriveListFiles(folderPath);
+        renderCloudFileListDialog(providerLabel, files, async (f)=>{
+          flashStatus('Lade Datei...');
+          try{
+            const text = await onedriveDownload(f.name, folderPath);
+            importProjectDataFromText(text);
+          }catch(e){ showConfirm('Laden fehlgeschlagen: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden'); }
+        });
+      }catch(e){
+        showConfirm('Dateiliste konnte nicht geladen werden: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden');
+      }
+    });
+    return;
   }
 
   flashStatus('Lade Dateiliste...');
   try{
     let files;
     if(provider === 'github'){ files = await githubListFiles(); }
-    else if(provider === 'pcloud'){ files = await pcloudListFiles(); }
-    else { files = await onedriveListFiles(); }
+    else { files = await pcloudListFiles(); }
 
-    const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
-    const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;max-height:70vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
-
-    const title = document.createElement('p');
-    title.textContent = providerLabel + ' – Datei wählen';
-    title.style.cssText = 'margin:0 0 14px;font-size:15px;font-weight:600;text-align:center;';
-    box.appendChild(title);
-
-    if(files.length === 0){
-      const empty = document.createElement('p');
-      empty.textContent = 'Keine gespeicherten Dateien gefunden.';
-      empty.style.cssText = 'font-size:13px;color:#888;text-align:center;';
-      box.appendChild(empty);
-    }
-
-    files.forEach(f=>{
-      const btn = document.createElement('button');
-      btn.textContent = f.name;
-      btn.style.cssText = 'width:100%;margin-bottom:8px;padding:10px;border:none;border-radius:8px;background:#f2f2f2;color:#222;font-size:13px;text-align:left;';
-      btn.addEventListener('click', async ()=>{
-        document.body.removeChild(overlay);
-        flashStatus('Lade Datei...');
-        try{
-          let text;
-          if(provider === 'github'){ text = await githubDownload(f.name); }
-          else if(provider === 'pcloud'){ text = await pcloudDownload(f.name); }
-          else { text = await onedriveDownload(f.name); }
-          importProjectDataFromText(text);
-        }catch(e){ showConfirm('Laden fehlgeschlagen: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden'); }
-      });
-      box.appendChild(btn);
+    renderCloudFileListDialog(providerLabel, files, async (f)=>{
+      flashStatus('Lade Datei...');
+      try{
+        let text;
+        if(provider === 'github'){ text = await githubDownload(f.name); }
+        else { text = await pcloudDownload(f.name); }
+        importProjectDataFromText(text);
+      }catch(e){ showConfirm('Laden fehlgeschlagen: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden'); }
     });
-
-    const btnCancel = document.createElement('button');
-    btnCancel.textContent = 'Abbrechen';
-    btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;margin-top:6px;';
-    btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
-    box.appendChild(btnCancel);
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
   }catch(e){
     showConfirm('Dateiliste konnte nicht geladen werden: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden');
   }
+}
+
+// Baut den Dateiauswahl-Dialog (Liste von Dateien eines Cloud-Anbieters).
+// onPick(file) wird aufgerufen, sobald der Nutzer eine Datei antippt (Overlay ist dann schon geschlossen).
+function renderCloudFileListDialog(providerLabel, files, onPick){
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:320px;width:88vw;max-height:70vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
+
+  const title = document.createElement('p');
+  title.textContent = providerLabel + ' – Datei wählen';
+  title.style.cssText = 'margin:0 0 14px;font-size:15px;font-weight:600;text-align:center;';
+  box.appendChild(title);
+
+  if(files.length === 0){
+    const empty = document.createElement('p');
+    empty.textContent = 'Keine gespeicherten Dateien gefunden.';
+    empty.style.cssText = 'font-size:13px;color:#888;text-align:center;';
+    box.appendChild(empty);
+  }
+
+  files.forEach(f=>{
+    const btn = document.createElement('button');
+    btn.textContent = f.name;
+    btn.style.cssText = 'width:100%;margin-bottom:8px;padding:10px;border:none;border-radius:8px;background:#f2f2f2;color:#222;font-size:13px;text-align:left;';
+    btn.addEventListener('click', ()=>{
+      document.body.removeChild(overlay);
+      onPick(f);
+    });
+    box.appendChild(btn);
+  });
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Abbrechen';
+  btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#f5f5f5;color:#555;font-size:13px;margin-top:6px;';
+  btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
+  box.appendChild(btnCancel);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 document.getElementById('project-select').addEventListener('change', (e)=>{
