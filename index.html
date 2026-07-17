@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.4 (14.07.2026) - TESTVERSION. Basis: F1-04.2 (Gesamtbild-Fix: Canvas-Breite auf MAX_PPTX_CANVAS_W begrenzt, aus parallelem Chat übernommen). In F1-04.3 ergänzt: (1) Freie Ordnerauswahl für OneDrive - sowohl beim Speichern als auch beim Laden erscheint ein Ordner-Browser (Navigation durch die OneDrive-Ordnerstruktur, "Diesen Ordner waehlen"); EIN gemeinsamer "zuletzt verwendeter Ordner" wird als Startpunkt/Vorschlag fuer Speichern UND Laden gemerkt, erscheint aber bei JEDEM Vorgang erneut (kein automatischer Speicherort ohne sichtbare Bestaetigung). Neue Ordner direkt anlegen: bewusst noch nicht enthalten. (2) Automatischer Token-Refresh: Der beim Login erhaltene Refresh-Token wurde bisher gespeichert, aber nie genutzt - lief das Access-Token ab (60-90 Min bei Microsoft), scheiterte jeder Speichern/Laden-Versuch mit HTTP 401 ohne Erholung. Zentrale onedriveFetch()-Huelle fuer alle Graph-Aufrufe: bei 401 wird still per Refresh-Token ein neues Access-Token geholt und der Aufruf einmal wiederholt; schlaegt auch das fehl, wird ausgeloggt (naechster Versuch startet den normalen Login-Dialog). Neu in F1-04.4: (3) Umbenennung "Lokal (Geraet)" zu schlicht "Speichern"/"Laden" in beiden Dialogen, da dieser Weg ueber die native Datei-Auswahl auf Windows/Mac ohnehin automatisch OneDrive und pCloud erreicht (als Laufwerk eingebunden) - "Lokal" war irrefuehrend; Laden nutzt jetzt zusaetzlich showOpenFilePicker() falls verfuegbar (symmetrisch zu showSaveFilePicker() beim Speichern). (4) Bild-Laden-Filter gelockert (image/*,*/*) + zweistufige Validierung (gemeldeter Dateityp + echter Ladeversuch), damit z.B. OneDrive als Quelle im Bild-Laden-Dialog erscheint, ohne dass versehentlich Nicht-Bilder uebernommen werden koennen. -->
+<!-- Schrittfolge-Tool F1-04.5 (12.07.2026) - TESTVERSION. Basis: F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter - aus dem "Verzeichniswahl"-Chat). Neu in F1-04.5, aus einem separaten Chat ("Speichern auf OneDrive"): iOS-Bugfix beim lokalen Speichern - JSON-Projektdateien wurden auf iPhone/iPad teils nicht in "Dateien" > "Downloads" abgelegt, weil iOS Safari JSON-Inhalte manchmal direkt als Text im Browser anzeigt statt herunterzuladen. downloadText() nutzt jetzt 'application/octet-stream' statt 'application/json' als MIME-Typ, das erzwingt einen echten Download-Dialog. Betrifft nur den lokalen "Speichern"-Weg, nicht OneDrive (das laeuft als API-Aufruf, war nicht betroffen). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.4</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.5</span></p>
   </header>
 
   <div class="toolbar">
@@ -2535,7 +2535,9 @@ function downloadDataUrl(filename, dataUrl){
   setTimeout(()=>{ if(a.parentNode) a.parentNode.removeChild(a); }, 100);
 }
 function downloadText(filename, text, mime){
-  const blob = new Blob([text], {type: mime || 'application/json'});
+  // Bewusst 'application/octet-stream' statt 'application/json': iOS Safari zeigt
+  // JSON-Inhalte sonst manchmal direkt als Text im Browser an, statt sie herunterzuladen.
+  const blob = new Blob([text], {type: mime || 'application/octet-stream'});
   const url = URL.createObjectURL(blob);
   downloadDataUrl(filename, url);
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
