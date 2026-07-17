@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.5 (12.07.2026) - TESTVERSION. Basis: F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter - aus dem "Verzeichniswahl"-Chat). Neu in F1-04.5, aus einem separaten Chat ("Speichern auf OneDrive"): iOS-Bugfix beim lokalen Speichern - JSON-Projektdateien wurden auf iPhone/iPad teils nicht in "Dateien" > "Downloads" abgelegt, weil iOS Safari JSON-Inhalte manchmal direkt als Text im Browser anzeigt statt herunterzuladen. downloadText() nutzt jetzt 'application/octet-stream' statt 'application/json' als MIME-Typ, das erzwingt einen echten Download-Dialog. Betrifft nur den lokalen "Speichern"-Weg, nicht OneDrive (das laeuft als API-Aufruf, war nicht betroffen). -->
+<!-- Schrittfolge-Tool F1-04.6 (17.07.2026) - TESTVERSION. Basis: F1-04.5. iOS-Bugfix: Beim Speichern ueber das vom Home-Bildschirm gestartete App-Symbol (eigenstaendiges Fenster ohne Safari-Oberflaeche) versuchte iOS, die erzeugte Datei mit einer beliebigen installierten App (z.B. Outlook) zu oeffnen, statt sie zu speichern - der Download-Trick per <a download> funktioniert in diesem "standalone" App-Modus auf iOS nicht zuverlaessig (bekannte WebKit-Einschraenkung), waehrend derselbe Weg in einem normalen Safari-Tab einwandfrei lief. Fix: isStandaloneApp() erkennt den Home-Bildschirm-Modus (window.navigator.standalone bzw. matchMedia display-mode:standalone); in diesem Fall wird beim lokalen Speichern jetzt die native iOS-Teilen-Funktion (Web Share API mit Datei) genutzt statt des Download-Tricks - zeigt zuverlaessig "In Dateien sichern" im Teilen-Menue. Fallback auf den bisherigen Download-Weg bleibt erhalten, falls Teilen nicht verfuegbar ist oder fehlschlaegt. Sonst unveraendert zu F1-04.5: Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix fuer JSON-Downloads (iOS Safari-Tab-Modus). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.5</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.6</span></p>
   </header>
 
   <div class="toolbar">
@@ -2595,6 +2595,14 @@ function supportsSaveFilePicker(){
 }
 
 // Speichert Text lokal: mit "Speichern unter"-Dialog falls verfügbar, sonst automatischer Download
+// Erkennt, ob die App gerade "vom Home-Bildschirm" (eigenständiges App-Fenster) läuft -
+// dort funktioniert der normale Download-Trick auf iOS nicht zuverlässig (iOS versucht
+// stattdessen zu raten, mit welcher App geöffnet werden soll, z.B. Outlook).
+function isStandaloneApp(){
+  return (window.navigator.standalone === true) ||
+         (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+
 async function saveTextLocal(fname, text){
   if(supportsSaveFilePicker()){
     try{
@@ -2611,10 +2619,27 @@ async function saveTextLocal(fname, text){
       if(e && e.name === 'AbortError'){ flashStatus('Speichern abgebrochen'); }
       else { flashStatus('Speichern fehlgeschlagen'); }
     }
-  } else {
-    downloadText(fname, text);
-    flashStatus('Gespeichert: ' + fname);
+    return;
   }
+
+  // iOS im Home-Bildschirm-Modus: Teilen-Menü nutzen statt Download-Trick
+  if(isStandaloneApp() && navigator.canShare){
+    try{
+      const file = new File([text], fname, {type: 'application/octet-stream'});
+      if(navigator.canShare({files: [file]})){
+        await navigator.share({files: [file], title: fname});
+        flashStatus('Geteilt: ' + fname);
+        return;
+      }
+    }catch(e){
+      // Nutzer hat das Teilen-Menü abgebrochen -> kein Fehler, einfach nichts weiter tun
+      if(e && e.name === 'AbortError'){ flashStatus('Speichern abgebrochen'); return; }
+      // Bei jedem anderen Fehler: normaler Download-Weg als Rückfalloption versuchen
+    }
+  }
+
+  downloadText(fname, text);
+  flashStatus('Gespeichert: ' + fname);
 }
 
 // Prüft ob der Browser einen echten "Datei öffnen"-Dialog (moderne API) unterstützt
