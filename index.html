@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.6 (17.07.2026) - TESTVERSION. Basis: F1-04.5. iOS-Bugfix: Beim Speichern ueber das vom Home-Bildschirm gestartete App-Symbol (eigenstaendiges Fenster ohne Safari-Oberflaeche) versuchte iOS, die erzeugte Datei mit einer beliebigen installierten App (z.B. Outlook) zu oeffnen, statt sie zu speichern - der Download-Trick per <a download> funktioniert in diesem "standalone" App-Modus auf iOS nicht zuverlaessig (bekannte WebKit-Einschraenkung), waehrend derselbe Weg in einem normalen Safari-Tab einwandfrei lief. Fix: isStandaloneApp() erkennt den Home-Bildschirm-Modus (window.navigator.standalone bzw. matchMedia display-mode:standalone); in diesem Fall wird beim lokalen Speichern jetzt die native iOS-Teilen-Funktion (Web Share API mit Datei) genutzt statt des Download-Tricks - zeigt zuverlaessig "In Dateien sichern" im Teilen-Menue. Fallback auf den bisherigen Download-Weg bleibt erhalten, falls Teilen nicht verfuegbar ist oder fehlschlaegt. Sonst unveraendert zu F1-04.5: Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix fuer JSON-Downloads (iOS Safari-Tab-Modus). -->
+<!-- Schrittfolge-Tool F1-04.7 (17.07.2026) - TESTVERSION. Basis: F1-04.6. Der in F1-04.6 nur für iOS im Home-Bildschirm-Modus eingebaute Teilen-Weg (Web Share API mit Datei statt Download-Trick) wurde jetzt auf ALLE Faelle ausgeweitet, in denen kein echter "Speichern unter"-Dialog verfuegbar ist - das betrifft auch Android/Chrome mobil (dort gibt es showSaveFilePicker generell nicht, unabhaengig vom Home-Bildschirm-Modus). Frueher landete die Datei auf Android blind im Download-Ordner ohne Auswahlmoeglichkeit; jetzt oeffnet sich beim lokalen Speichern das native Android-Teilen-Menü, in dem man den Zielort frei waehlen kann (z.B. OneDrive, Drive, Dateien-App) - genau wie es auf iOS bereits funktioniert. isStandaloneApp()-Pruefung dafuer entfernt, da sie zu eng war (nur iOS-Home-Bildschirm statt aller Faelle ohne showSaveFilePicker). Sonst unveraendert zu F1-04.6: Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.6</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.7</span></p>
   </header>
 
   <div class="toolbar">
@@ -2622,8 +2622,12 @@ async function saveTextLocal(fname, text){
     return;
   }
 
-  // iOS im Home-Bildschirm-Modus: Teilen-Menü nutzen statt Download-Trick
-  if(isStandaloneApp() && navigator.canShare){
+  // Kein "Speichern unter"-Dialog verfügbar (iOS jeder Art, UND Android/Chrome mobil,
+  // die showSaveFilePicker generell nicht unterstützen): Teilen-Menü nutzen statt
+  // Download-Trick, damit man den Zielort (z.B. OneDrive, Dateien, Drive) selbst wählen
+  // kann, statt dass die Datei blind im Download-Ordner landet oder eine falsche App
+  // vorgeschlagen wird.
+  if(navigator.canShare){
     try{
       const file = new File([text], fname, {type: 'application/octet-stream'});
       if(navigator.canShare({files: [file]})){
