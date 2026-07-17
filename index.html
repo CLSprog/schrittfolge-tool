@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.7 (17.07.2026) - TESTVERSION. Basis: F1-04.6. Der in F1-04.6 nur für iOS im Home-Bildschirm-Modus eingebaute Teilen-Weg (Web Share API mit Datei statt Download-Trick) wurde jetzt auf ALLE Faelle ausgeweitet, in denen kein echter "Speichern unter"-Dialog verfuegbar ist - das betrifft auch Android/Chrome mobil (dort gibt es showSaveFilePicker generell nicht, unabhaengig vom Home-Bildschirm-Modus). Frueher landete die Datei auf Android blind im Download-Ordner ohne Auswahlmoeglichkeit; jetzt oeffnet sich beim lokalen Speichern das native Android-Teilen-Menü, in dem man den Zielort frei waehlen kann (z.B. OneDrive, Drive, Dateien-App) - genau wie es auf iOS bereits funktioniert. isStandaloneApp()-Pruefung dafuer entfernt, da sie zu eng war (nur iOS-Home-Bildschirm statt aller Faelle ohne showSaveFilePicker). Sonst unveraendert zu F1-04.6: Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6). -->
+<!-- Schrittfolge-Tool F1-04.9 (17.07.2026) - TESTVERSION. Basis: F1-04.8. UI-Vereinfachung: Die Auswahlfenster "Wo soll gespeichert werden?" / "Woher soll geladen werden?" erscheinen jetzt NUR NOCH auf Android. Auf iOS und Desktop/Windows/Mac wird ohne Zwischenfenster direkt gespeichert/geladen (iOS erreicht OneDrive & Co. bereits ueber das native Teilen-Menue aus F1-04.6, Windows/Mac erreichen OneDrive & Co. bereits ueber den nativen "Speichern unter"-Dialog als eingebundenes Laufwerk). Auf Android bleibt die Auswahl zwischen "Lokal" und "OneDrive" bestehen, da dort beide Wege technisch unterschiedlich und beide noetig sind. GitHub- und pCloud-Buttons ueberall entfernt (waren nie funktionsfaehig, nur Platzhalter). Sonst unveraendert zu F1-04.8: Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.7</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.9</span></p>
   </header>
 
   <div class="toolbar">
@@ -2603,6 +2603,15 @@ function isStandaloneApp(){
          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
 }
 
+// Erkennt Android: dort zeigt das Teilen-Menü (Web Share API) OneDrive oft NICHT an
+// (OneDrive registriert sich auf Android nicht als Ziel für beliebige Dateien), aber
+// der normale Download-Weg löst - sofern in Chrome "Vor dem Herunterladen Speicherort
+// fragen" aktiviert ist - den vollen Android-Systemdialog mit allen Speicherorten aus
+// (inkl. OneDrive, Drive, etc.), daher dort bewusst NICHT das Teilen-Menü verwenden.
+function isAndroid(){
+  return /Android/i.test(navigator.userAgent || '');
+}
+
 async function saveTextLocal(fname, text){
   if(supportsSaveFilePicker()){
     try{
@@ -2622,11 +2631,17 @@ async function saveTextLocal(fname, text){
     return;
   }
 
-  // Kein "Speichern unter"-Dialog verfügbar (iOS jeder Art, UND Android/Chrome mobil,
-  // die showSaveFilePicker generell nicht unterstützen): Teilen-Menü nutzen statt
-  // Download-Trick, damit man den Zielort (z.B. OneDrive, Dateien, Drive) selbst wählen
-  // kann, statt dass die Datei blind im Download-Ordner landet oder eine falsche App
-  // vorgeschlagen wird.
+  // Android: Download-Weg nutzen (kein Teilen-Menü) - triggert bei aktivierter
+  // Chrome-Einstellung "Speicherort fragen" den echten Android-Speicherdialog mit
+  // allen Speicherorten inkl. OneDrive.
+  if(isAndroid()){
+    downloadText(fname, text);
+    flashStatus('Gespeichert: ' + fname + ' (Speicherort-Dialog erscheint nur, wenn in Chrome "Speicherort fragen" aktiviert ist)');
+    return;
+  }
+
+  // iOS (jeder Art) und sonstige mobile Browser ohne "Speichern unter"-Dialog:
+  // Teilen-Menü nutzen statt Download-Trick.
   if(navigator.canShare){
     try{
       const file = new File([text], fname, {type: 'application/octet-stream'});
@@ -2678,6 +2693,18 @@ function showStorageTargetDialog(exportType){
   const { data, fname } = buildExportPayload(exportType);
   const text = JSON.stringify(data);
 
+  // iOS und Desktop/Windows: kein Auswahlfenster nötig - direkt speichern.
+  // (iOS erreicht OneDrive & Co. bereits über das native Teilen-Menü beim Speichern;
+  //  Windows/Mac erreichen OneDrive & Co. bereits über den nativen "Speichern unter"-Dialog.)
+  if(!isAndroid()){
+    if(IN_CLAUDE){ showTextOverlay(text); }
+    else { saveTextLocal(fname, text); }
+    return;
+  }
+
+  // Android: OneDrive ist über den normalen Speicherweg nicht zuverlässig erreichbar
+  // (kein Ordner-Picker, kein passendes Teilen-Ziel) - deshalb hier weiterhin eine
+  // einfache Auswahl zwischen "Lokal" (Systemdownload) und "OneDrive" (direkte Anbindung).
   const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
   const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
 
@@ -2693,25 +2720,10 @@ function showStorageTargetDialog(exportType){
 
   const btnLocal = document.createElement('button');
   btnLocal.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#eee;color:#333;font-size:14px;font-weight:600;';
-  btnLocal.innerHTML = '💾 Speichern';
+  btnLocal.innerHTML = '💾 Lokal';
   btnLocal.addEventListener('click', async ()=>{
     document.body.removeChild(overlay);
-    if(IN_CLAUDE){ showTextOverlay(text); }
-    else { await saveTextLocal(fname, text); }
-  });
-
-  const btnGithub = document.createElement('button');
-  btnGithub.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ccc;color:#777;font-size:14px;font-weight:600;cursor:not-allowed;';
-  btnGithub.innerHTML = '🐙 GitHub <span style="font-size:11px;font-weight:400;">(derzeit nicht verfügbar)</span>';
-  btnGithub.addEventListener('click', ()=>{
-    showConfirm('GitHub-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
-  });
-
-  const btnPcloud = document.createElement('button');
-  btnPcloud.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ccc;color:#777;font-size:14px;font-weight:600;cursor:not-allowed;';
-  btnPcloud.innerHTML = '☁️ pCloud <span style="font-size:11px;font-weight:400;">(derzeit nicht verfügbar)</span>';
-  btnPcloud.addEventListener('click', ()=>{
-    showConfirm('pCloud-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
+    await saveTextLocal(fname, text);
   });
 
   const btnOnedrive = document.createElement('button');
@@ -2728,9 +2740,7 @@ function showStorageTargetDialog(exportType){
   btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
 
   box.appendChild(btnLocal);
-  box.appendChild(btnGithub);
   box.appendChild(btnOnedrive);
-  box.appendChild(btnPcloud);
   box.appendChild(btnCancel);
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -3615,6 +3625,15 @@ document.getElementById('file-import').addEventListener('change', (e)=>{
 
 // Auswahl-Dialog: Woher soll geladen werden? (Lokal / OneDrive / pCloud)
 function showImportSourceDialog(){
+  // iOS und Desktop/Windows: kein Auswahlfenster nötig - direkt der normale
+  // Datei-Öffnen-Dialog, der dort ohnehin schon OneDrive & Co. erreicht.
+  if(!isAndroid()){
+    loadTextLocal();
+    return;
+  }
+
+  // Android: OneDrive separat anbieten, da über den normalen Laden-Weg nicht
+  // zuverlässig erreichbar.
   const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
   const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:20px;max-width:300px;width:88vw;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
 
@@ -3625,24 +3644,10 @@ function showImportSourceDialog(){
 
   const btnLocal = document.createElement('button');
   btnLocal.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#eee;color:#333;font-size:14px;font-weight:600;';
-  btnLocal.innerHTML = '📂 Laden';
+  btnLocal.innerHTML = '📂 Lokal';
   btnLocal.addEventListener('click', async ()=>{
     document.body.removeChild(overlay);
     await loadTextLocal();
-  });
-
-  const btnGithub = document.createElement('button');
-  btnGithub.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ccc;color:#777;font-size:14px;font-weight:600;cursor:not-allowed;';
-  btnGithub.innerHTML = '🐙 GitHub <span style="font-size:11px;font-weight:400;">(derzeit nicht verfügbar)</span>';
-  btnGithub.addEventListener('click', ()=>{
-    showConfirm('GitHub-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
-  });
-
-  const btnPcloud = document.createElement('button');
-  btnPcloud.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ccc;color:#777;font-size:14px;font-weight:600;cursor:not-allowed;';
-  btnPcloud.innerHTML = '☁️ pCloud <span style="font-size:11px;font-weight:400;">(derzeit nicht verfügbar)</span>';
-  btnPcloud.addEventListener('click', ()=>{
-    showConfirm('pCloud-Anbindung ist vorbereitet, aber derzeit nicht verfügbar.', ()=>{}, 'Verstanden');
   });
 
   const btnOnedrive = document.createElement('button');
@@ -3659,9 +3664,7 @@ function showImportSourceDialog(){
   btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
 
   box.appendChild(btnLocal);
-  box.appendChild(btnGithub);
   box.appendChild(btnOnedrive);
-  box.appendChild(btnPcloud);
   box.appendChild(btnCancel);
   overlay.appendChild(box);
   document.body.appendChild(overlay);
