@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.10 (17.07.2026) - TESTVERSION. Basis: F1-04.9. iOS-Bugfix: Bei einer Nutzerin, die das Tool ueber das Home-Bildschirm-Symbol (installierte App, standalone) auf einem iPad oeffnet, passierte beim Antippen von "Laden" absolut nichts (kein Dateiauswahl-Dialog, keine Fehlermeldung) - obwohl derselbe Weg in einem normalen Safari-Tab einwandfrei funktioniert. Ursache: die beiden versteckten <input type="file">-Elemente (file-import fuer Projektdaten, bg-file-input fuer Hintergrundbilder) waren mit "display:none" ausgeblendet. Bekanntes WebKit-Verhalten: im Home-Bildschirm-App-Modus (standalone WKWebView) verweigert Safari manchmal die programmatische Aktivierung des Dateiauswahl-Dialogs bei komplett aus dem Layout entfernten Elementen. Fix: beide Inputs bleiben jetzt im Layout, sind aber unsichtbar positioniert (position:absolute; opacity:0; ausserhalb des sichtbaren Bereichs) statt per display:none entfernt - Standard-Workaround fuer dieses WebKit-Verhalten. Sonst unveraendert zu F1-04.9: Auswahlfenster nur auf Android, iOS/Windows/Mac speichern/laden direkt ohne Zwischenfenster. Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8). -->
+<!-- Schrittfolge-Tool F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.10</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.11</span></p>
   </header>
 
   <div class="toolbar">
@@ -2684,7 +2684,13 @@ async function loadTextLocal(){
       showConfirm('Lokales Laden fehlgeschlagen: ' + (e && e.message ? e.message : e), ()=>{}, 'Verstanden');
     }
   } else {
-    document.getElementById('file-import').click();
+    try{
+      const el = document.getElementById('file-import');
+      if(!el){ alert('Interner Fehler: Datei-Auswahl-Element nicht gefunden.'); return; }
+      el.click();
+    }catch(e){
+      alert('Fehler beim Öffnen der Dateiauswahl:\n' + (e && e.message ? e.message : e));
+    }
   }
 }
 
@@ -3616,11 +3622,18 @@ document.getElementById('b-restart-from-last').addEventListener('click', ()=>{
   );
 });
 document.getElementById('b-data-export').addEventListener('click', exportProjectData);
-document.getElementById('b-data-import').addEventListener('click', showImportSourceDialog);
+document.getElementById('b-data-import').addEventListener('click', function(){
+  try{ showImportSourceDialog(); }
+  catch(e){ alert('Fehler beim Öffnen des Laden-Dialogs:\n' + (e && e.message ? e.message : e)); }
+});
 document.getElementById('file-import').addEventListener('change', (e)=>{
-  const f = e.target.files && e.target.files[0];
-  if(f) importProjectData(f);
-  e.target.value = '';
+  try{
+    const f = e.target.files && e.target.files[0];
+    if(f) importProjectData(f);
+    e.target.value = '';
+  }catch(e2){
+    alert('Fehler beim Verarbeiten der gewählten Datei:\n' + (e2 && e2.message ? e2.message : e2));
+  }
 });
 
 // Auswahl-Dialog: Woher soll geladen werden? (Lokal / OneDrive / pCloud)
@@ -3628,7 +3641,7 @@ function showImportSourceDialog(){
   // iOS und Desktop/Windows: kein Auswahlfenster nötig - direkt der normale
   // Datei-Öffnen-Dialog, der dort ohnehin schon OneDrive & Co. erreicht.
   if(!isAndroid()){
-    loadTextLocal();
+    loadTextLocal().catch(function(e){ alert('Unerwarteter Fehler beim Laden:\n' + (e && e.message ? e.message : e)); });
     return;
   }
 
