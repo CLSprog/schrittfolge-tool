@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.9 (17.07.2026) - TESTVERSION. Basis: F1-04.8. UI-Vereinfachung: Die Auswahlfenster "Wo soll gespeichert werden?" / "Woher soll geladen werden?" erscheinen jetzt NUR NOCH auf Android. Auf iOS und Desktop/Windows/Mac wird ohne Zwischenfenster direkt gespeichert/geladen (iOS erreicht OneDrive & Co. bereits ueber das native Teilen-Menue aus F1-04.6, Windows/Mac erreichen OneDrive & Co. bereits ueber den nativen "Speichern unter"-Dialog als eingebundenes Laufwerk). Auf Android bleibt die Auswahl zwischen "Lokal" und "OneDrive" bestehen, da dort beide Wege technisch unterschiedlich und beide noetig sind. GitHub- und pCloud-Buttons ueberall entfernt (waren nie funktionsfaehig, nur Platzhalter). Sonst unveraendert zu F1-04.8: Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8). -->
+<!-- Schrittfolge-Tool F1-04.10 (17.07.2026) - TESTVERSION. Basis: F1-04.9. iOS-Bugfix: Bei einer Nutzerin, die das Tool ueber das Home-Bildschirm-Symbol (installierte App, standalone) auf einem iPad oeffnet, passierte beim Antippen von "Laden" absolut nichts (kein Dateiauswahl-Dialog, keine Fehlermeldung) - obwohl derselbe Weg in einem normalen Safari-Tab einwandfrei funktioniert. Ursache: die beiden versteckten <input type="file">-Elemente (file-import fuer Projektdaten, bg-file-input fuer Hintergrundbilder) waren mit "display:none" ausgeblendet. Bekanntes WebKit-Verhalten: im Home-Bildschirm-App-Modus (standalone WKWebView) verweigert Safari manchmal die programmatische Aktivierung des Dateiauswahl-Dialogs bei komplett aus dem Layout entfernten Elementen. Fix: beide Inputs bleiben jetzt im Layout, sind aber unsichtbar positioniert (position:absolute; opacity:0; ausserhalb des sichtbaren Bereichs) statt per display:none entfernt - Standard-Workaround fuer dieses WebKit-Verhalten. Sonst unveraendert zu F1-04.9: Auswahlfenster nur auf Android, iOS/Windows/Mac speichern/laden direkt ohne Zwischenfenster. Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.9</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.10</span></p>
   </header>
 
   <div class="toolbar">
@@ -237,7 +237,7 @@
       <button id="b-clear" title="Alles löschen"><span class="icon-char">🗑️</span></button>
     </div>
   </div>
-  <input type="file" id="bg-file-input" accept="image/*,*/*" style="display:none">
+  <input type="file" id="bg-file-input" accept="image/*,*/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px;">
   <div class="toolbar" style="border-top:1px solid var(--border);">
     <div class="group" style="border-left:none;padding-left:0;margin-left:0;flex:1;">
       <span class="icon-char" style="font-size:14px;">🗂️</span>
@@ -271,7 +271,7 @@
       <button id="b-bg-zoom-out" title="Hintergrundbild verkleinern" style="display:none;"><span class="icon-char">－</span></button>
     </div>
   </div>
-  <input type="file" id="file-import" accept="application/json,.json,text/plain,*/*" style="display:none">
+  <input type="file" id="file-import" accept="application/json,.json,text/plain,*/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px;">
 
   <div id="edit-banner">
     <span id="edit-banner-label">Bearbeite Sequenz …</span>
