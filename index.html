@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
+<!-- Schrittfolge-Tool F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.11</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.13</span></p>
   </header>
 
   <div class="toolbar">
@@ -1041,7 +1041,7 @@ function computeContentBounds(st){
   function consider(x,y,pad){ minX=Math.min(minX,x-pad); minY=Math.min(minY,y-pad); maxX=Math.max(maxX,x+pad); maxY=Math.max(maxY,y+pad); }
   st.feet.forEach(f=>consider(f.x,f.y, f.color==='stripes' ? 48 : 30));
   st.bodies.forEach(b=>consider(b.x,b.y,40));
-  st.labels.forEach(l=>{ const fs = l.isNum ? 20.25 : 14.625; consider(l.x,l.y,fs); });
+  st.labels.forEach(l=>{ const LL = layoutLabel(l); consider(l.x,l.y,LL.fs); if(LL.lines.length>1 || LL.w>LL.fs){ consider(l.x+LL.w, l.y+(LL.lines.length-1)*LL.lh, LL.fs); } });
   st.strokes.forEach(s=> s.points.forEach(p=>consider(p.x,p.y,20)));
   if(minX===Infinity) return {x:-260,y:-260,w:520,h:520};
   return {x:minX, y:minY, w:Math.max(40,maxX-minX), h:Math.max(40,maxY-minY)};
@@ -1219,20 +1219,63 @@ function drawBody(b){
   if(selected && selected.type==='bodies' && selected.id===b.id) drawSelection(b.x,b.y,b.rot,26);
 }
 
+// Mehrzeiliger Text (F1-04.13): Zeilen aus expliziten Umbruechen (Enter) plus
+// automatischem Umbruch bei LABEL_WRAP_W Zeichenflaechen-Einheiten. Nummern-Labels
+// (isNum) bleiben immer einzeilig.
+const LABEL_WRAP_W = 190;
+function labelFontSize(l){ return l.isNum ? 20.25 : 14.625; }
+function layoutLabel(l, c){
+  const cx = c || ctx;
+  const fs = labelFontSize(l);
+  cx.save();
+  cx.font = '600 ' + fs + 'px sans-serif';
+  const text = String(l.text);
+  let lines = [];
+  if(l.isNum){
+    lines = [text];
+  } else {
+    text.split('\n').forEach(par=>{
+      if(par === ''){ lines.push(''); return; }
+      const words = par.split(' ');
+      let cur = '';
+      words.forEach(wd=>{
+        // Sehr lange Woerter zeichenweise umbrechen
+        while(cx.measureText(wd).width > LABEL_WRAP_W){
+          let k = 1;
+          while(k < wd.length && cx.measureText(wd.slice(0,k+1)).width <= LABEL_WRAP_W) k++;
+          if(cur){ lines.push(cur); cur=''; }
+          lines.push(wd.slice(0,k));
+          wd = wd.slice(k);
+        }
+        const test = cur ? cur + ' ' + wd : wd;
+        if(cur && cx.measureText(test).width > LABEL_WRAP_W){ lines.push(cur); cur = wd; }
+        else cur = test;
+      });
+      lines.push(cur);
+    });
+  }
+  if(!lines.length) lines = [''];
+  let w = 0;
+  lines.forEach(t=>{ w = Math.max(w, cx.measureText(t).width); });
+  cx.restore();
+  const lh = fs * 1.25;
+  // Erste Zeile sitzt auf l.y (wie bisher, textBaseline middle) - weitere Zeilen darunter
+  return {lines, w, lh, fs, top: l.y - fs*0.4, h: fs*0.8 + (lines.length-1)*lh};
+}
+
 function drawLabel(l){
-  const fontSize = l.isNum ? 20.25 : 14.625;
+  const L = layoutLabel(l);
   ctx.save();
-  ctx.font = '600 ' + fontSize + 'px sans-serif';
+  ctx.font = '600 ' + L.fs + 'px sans-serif';
   ctx.fillStyle = '#cc1f1f';
   ctx.textBaseline = 'middle';
-  ctx.fillText(l.text, l.x, l.y);
+  L.lines.forEach((t,i)=> ctx.fillText(t, l.x, l.y + i*L.lh));
   ctx.restore();
   if(selected && selected.type==='labels' && selected.id===l.id){
-    const w = ctx.measureText(l.text).width;
     ctx.save();
     ctx.strokeStyle = 'rgba(47,111,179,0.6)';
     ctx.setLineDash([3,3]);
-    ctx.strokeRect(l.x-3,l.y-fontSize*0.4,w+6,fontSize*0.8);
+    ctx.strokeRect(l.x-3, L.top, L.w+6, L.h);
     ctx.restore();
   }
 }
@@ -1713,17 +1756,27 @@ function exitEditMode(save){
     // Wenn Endschritte verändert: Ankerfüße im Folgebild aktualisieren
     if(blackFeetUnlocked && jumpToNext !== null){
       const nextSeq = project.sequences[jumpToNext];
-      const blackFeet = state.feet.filter(f => f.color === 'black');
-      const lastTwo = blackFeet.slice(-2);
-      const anchorFeet = nextSeq.feet.filter(f => f.color === 'white' && f.anchor);
+      const blackFeet = state.feet.filter(f => f.color === 'black').sort((a,b)=>a.id-b.id);
+      const lastTwo = blackFeet; // F1-04.13: ALLE schwarzen Fuesse
+      const anchorFeet = nextSeq.feet.filter(f => f.color === 'white' && f.anchor).sort((a,b)=>a.id-b.id);
       if(lastTwo.length > 0 && anchorFeet.length > 0){
         const oldCx = anchorFeet.reduce((s,f)=>s+f.x,0)/anchorFeet.length;
         const oldCy = anchorFeet.reduce((s,f)=>s+f.y,0)/anchorFeet.length;
         const newCx = lastTwo.reduce((s,f)=>s+f.x,0)/lastTwo.length;
         const newCy = lastTwo.reduce((s,f)=>s+f.y,0)/lastTwo.length;
         const dx = newCx - oldCx, dy = newCy - oldCy;
+        // Anzahl angleichen: zu viele Ankerfuesse entfernen, fehlende neu anlegen
+        while(anchorFeet.length > lastTwo.length){
+          const rm = anchorFeet.pop();
+          nextSeq.feet = nextSeq.feet.filter(f => f !== rm);
+        }
+        while(anchorFeet.length < lastTwo.length){
+          const nf = {id:newId(), x:0, y:0, rot:0, color:'white', anchor:true};
+          nextSeq.feet.push(nf);
+          anchorFeet.push(nf);
+        }
         anchorFeet.forEach((af,i)=>{
-          const src = lastTwo[Math.min(i,lastTwo.length-1)];
+          const src = lastTwo[i];
           af.x = src.x; af.y = src.y; af.rot = src.rot;
         });
         nextSeq.feet.filter(f=>!(f.color==='white'&&f.anchor)).forEach(f=>{f.x+=dx;f.y+=dy;});
@@ -2058,29 +2111,60 @@ function showLabelInput(pos, existingLabel){
   labelInputOpen = true;
   const rect = canvas.getBoundingClientRect();
 
-  const input = document.createElement('input');
-  input.type = 'text';
+  // F1-04.13: mehrzeiliges Eingabefeld (Enter = neue Zeile), waechst mit dem Text.
+  const input = document.createElement('textarea');
+  input.rows = 1;
   input.placeholder = 'z.B. 2RE';
   if(existingLabel) input.value = existingLabel.text;
+  const boxW = Math.max(150, Math.min(260, rect.width - 70));
+  let left = rect.left + (pos.x - viewOffset.x)*viewScale;
+  left = Math.max(rect.left + 4, Math.min(left, rect.right - boxW - 52));
   input.style.position = 'fixed';
-  input.style.left = (rect.left + (pos.x - viewOffset.x)*viewScale) + 'px';
+  input.style.left = left + 'px';
   input.style.top = (rect.top + (pos.y - viewOffset.y)*viewScale - 14) + 'px';
   input.style.zIndex = 1000;
-  input.style.fontSize = '16px';
+  input.style.fontSize = '16px';   // mind. 16px: verhindert automatisches Hineinzoomen auf iOS
+  input.style.lineHeight = '1.25';
+  input.style.fontFamily = 'sans-serif';
   input.style.padding = '3px 6px';
   input.style.border = '1.5px solid #2f6fb3';
   input.style.borderRadius = '6px';
-  input.style.width = '100px';
+  input.style.width = boxW + 'px';
   input.style.background = '#fff';
+  input.style.resize = 'none';
+  input.style.overflow = 'hidden';
+  input.style.boxSizing = 'border-box';
   document.body.appendChild(input);
+
+  // Fertig-Knopf (Enter macht ja eine neue Zeile) - mousedown/touchstart verhindern,
+  // dass das Feld vorher den Fokus verliert.
+  const okBtn = document.createElement('button');
+  okBtn.textContent = '✓';
+  okBtn.title = 'Fertig';
+  okBtn.style.cssText = 'position:fixed;z-index:1001;width:40px;height:34px;border:none;border-radius:8px;background:#2f6fb3;color:#fff;font-size:18px;';
+  document.body.appendChild(okBtn);
+
+  function autoGrow(){
+    input.style.height = 'auto';
+    input.style.height = (input.scrollHeight + 2) + 'px';
+    okBtn.style.left = (left + boxW + 6) + 'px';
+    okBtn.style.top = input.style.top;
+  }
+  input.addEventListener('input', autoGrow);
+  autoGrow();
   input.focus();
   if(existingLabel) input.select(); // bestehenden Text komplett markiert anzeigen, wie bei normaler Textbearbeitung üblich
+
+  function removeUi(){
+    if(input.parentNode) input.parentNode.removeChild(input);
+    if(okBtn.parentNode) okBtn.parentNode.removeChild(okBtn);
+  }
 
   let done = false;
   function commit(){
     if(done) return;
     done = true;
-    const text = input.value.trim();
+    const text = input.value.replace(/\r\n?/g,'\n').replace(/\s+$/,'').replace(/^\n+/,'');
     if(existingLabel){
       // Bearbeitung eines bestehenden Textes: KEIN neues Element, sondern das
       // vorhandene aktualisieren (oder entfernen, falls der Text geleert wurde).
@@ -2094,29 +2178,33 @@ function showLabelInput(pos, existingLabel){
         selected = null;
         draw(); saveState();
       }
-      if(input.parentNode) input.parentNode.removeChild(input);
+      removeUi();
       setTool('idle');
     } else if(text){
       pushHistory();
       const labelId = newId();
       state.labels.push({id:labelId, x:pos.x, y:pos.y, text});
       draw(); saveState();
-      if(input.parentNode) input.parentNode.removeChild(input);
+      removeUi();
       setTool('idle');
       selected = {type:'labels', id:labelId};
       draw();
     } else {
-      if(input.parentNode) input.parentNode.removeChild(input);
+      removeUi();
       setTool('idle');
     }
     labelInputOpen = false;
   }
   input.addEventListener('blur', commit);
+  okBtn.addEventListener('mousedown', (e)=>{ e.preventDefault(); });
+  okBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); commit(); }, {passive:false});
+  okBtn.addEventListener('click', (e)=>{ e.preventDefault(); commit(); });
   input.addEventListener('keydown', (e)=>{
-    if(e.key==='Enter'){ e.preventDefault(); input.blur(); }
+    // Enter = neue Zeile (Standardverhalten). Strg/Cmd+Enter = fertig (Desktop).
+    if(e.key==='Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); commit(); }
     if(e.key==='Escape'){
       done = true;
-      if(input.parentNode) input.parentNode.removeChild(input);
+      removeUi();
       setTool('idle');
       labelInputOpen = false;
     }
@@ -2195,7 +2283,7 @@ document.getElementById('b-zoom-out').addEventListener('click', ()=> setZoom(vie
 // Gemeinsame Hilfsfunktion für beide Wege des "new"-Buttons (Speichern und Verwerfen).
 function startNewSequenceFrom(feetSource){
   const blackFeet = (feetSource || []).filter(f=>f.color==='black').sort((a,b)=>a.id-b.id);
-  const lastTwo = blackFeet.slice(-2);
+  const lastTwo = blackFeet; // F1-04.13: ALLE schwarzen Fuesse werden zu weissen Startfuessen
   const carried = lastTwo.length >= 1
     ? lastTwo.map(f=>({id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}))
     : [];
@@ -2938,11 +3026,9 @@ function hitTest(pos){
   }
   for(let i=state.labels.length-1;i>=0;i--){
     const l = state.labels[i];
-    const fontSize = l.isNum ? 20.25 : 14.625;
-    ctx.font = '600 ' + fontSize + 'px sans-serif';
-    const w = ctx.measureText(l.text).width;
-    const half = fontSize*0.45;
-    if(pos.x>l.x-4 && pos.x<l.x+w+4 && pos.y>l.y-half && pos.y<l.y+half) return {type:'labels', id:l.id};
+    const LL = layoutLabel(l);
+    const half = LL.fs*0.45;
+    if(pos.x>l.x-4 && pos.x<l.x+LL.w+4 && pos.y>l.y-half && pos.y<l.y-half+LL.fs*0.9+(LL.lines.length-1)*LL.lh) return {type:'labels', id:l.id};
   }
   for(let i=state.strokes.length-1;i>=0;i--){
     const s = state.strokes[i];
@@ -2988,11 +3074,9 @@ function hitTestAll(pos){
   }
   for(let i=state.labels.length-1;i>=0;i--){
     const l = state.labels[i];
-    const fontSize = l.isNum ? 20.25 : 14.625;
-    ctx.font = '600 ' + fontSize + 'px sans-serif';
-    const w = ctx.measureText(l.text).width;
-    const half = fontSize*0.45;
-    if(pos.x>l.x-4 && pos.x<l.x+w+4 && pos.y>l.y-half && pos.y<l.y+half) matches.push({type:'labels', id:l.id});
+    const LL = layoutLabel(l);
+    const half = LL.fs*0.45;
+    if(pos.x>l.x-4 && pos.x<l.x+LL.w+4 && pos.y>l.y-half && pos.y<l.y-half+LL.fs*0.9+(LL.lines.length-1)*LL.lh) matches.push({type:'labels', id:l.id});
   }
   for(let i=state.strokes.length-1;i>=0;i--){
     const s = state.strokes[i];
@@ -3596,12 +3680,12 @@ document.getElementById('b-restart-from-last').addEventListener('click', ()=>{
   }
   showConfirm(
     'Aus der letzten gespeicherten Sequenz neu starten? ' +
-    'Die schwarzen Füße dieser Sequenz werden als weiße Startfüße übernommen. ' +
+    'ALLE schwarzen Füße dieser Sequenz werden als weiße Startfüße übernommen. ' +
     'Der aktuelle leere Bildschirm wird dabei ersetzt.',
     ()=>{
       const lastSeq = project.sequences[project.sequences.length - 1];
       const blackFeet = (lastSeq.feet || []).filter(f=>f.color==='black').sort((a,b)=>a.id-b.id);
-      const lastTwo = blackFeet.slice(-2);
+      const lastTwo = blackFeet; // F1-04.13: ALLE schwarzen Fuesse
       pushHistory();
       // Anker-Füße behalten ihre EXAKTEN Weltkoordinaten (keine Verschiebung zur
       // Bildschirmmitte mehr) - so bleibt der Notfall-Neustart im selben
@@ -3968,8 +4052,10 @@ function renderStateCanvas(st){
 function computeSequenceWorldOffsets(seqs){
   const offsets = [{dx:0, dy:0}];
   for(let i=1;i<seqs.length;i++){
-    const prevBlack = seqs[i-1].feet.filter(f=>f.color==='black').sort((a,b)=>a.id-b.id).slice(-2);
-    const curAnchor = seqs[i].feet.filter(f=>f.anchor).sort((a,b)=>a.id-b.id).slice(0,2);
+    const curAnchor = seqs[i].feet.filter(f=>f.anchor).sort((a,b)=>a.id-b.id); // F1-04.13: alle Anker
+    // genau so viele (letzte) schwarze Fuesse der Vorgaengerin wie Anker vorhanden sind (alte Projekte mit 2 Ankern bleiben unveraendert)
+    const prevBlackAll = seqs[i-1].feet.filter(f=>f.color==='black').sort((a,b)=>a.id-b.id);
+    const prevBlack = curAnchor.length ? prevBlackAll.slice(-curAnchor.length) : prevBlackAll;
     const n = Math.min(prevBlack.length, curAnchor.length);
     if(n > 0){
       const prevOff = offsets[i-1];
