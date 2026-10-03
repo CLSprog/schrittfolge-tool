@@ -1,7 +1,7 @@
 // Schrittfolge-Tool – Service Worker
 // WICHTIG: CACHE_VERSION bei jedem Update der App hochzählen (v2 -> v3 -> ...).
 // Der Cache-Name enthält die Version, damit alte Caches automatisch verworfen werden.
-const CACHE_VERSION = 'v44-F1-04-14';
+const CACHE_VERSION = 'v45-F1-04-15';
 const CACHE = 'schrittfolge-' + CACHE_VERSION;
 
 const FILES_TO_CACHE = [

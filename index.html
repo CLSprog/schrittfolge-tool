@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
+<!-- Schrittfolge-Tool F1-04.15 (03.10.2026) - TESTVERSION. Basis: F1-04.14. Neu: Ansicht - Dreiecke oben links/rechts auf Hoehe des Titels; Bearbeiten-Balken - Titel oben, Pfeile darunter an den Raendern des Titelblocks; freier Text so gross wie die Pfeil-Nummern (20.25, Umbruchbreite mitskaliert); graue Pfeile gleiche Strichstaerke/Spitze wie blau/gruen (gilt fuer ALLE Zeichnungen, da zur Zeichenzeit berechnet). Vorherige Kopfzeile: F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -66,6 +66,7 @@
   #edit-banner.active{display:flex;}
   #edit-banner button{background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.5);color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;min-height:28px;}
   #edit-banner button:disabled{opacity:0.35;}
+  #edit-banner-label{white-space:pre-line;line-height:1.25;}
   #edit-banner button.save{background:rgba(255,255,255,0.9);color:#a06000;font-weight:700;}
   #split-banner{display:none;background:#c0392b;color:#fff;padding:7px 14px;font-size:13px;font-weight:600;align-items:center;justify-content:space-between;gap:10px;}
   #split-banner.active{display:flex;}
@@ -76,7 +77,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.14</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.15</span></p>
   </header>
 
   <div class="toolbar">
@@ -275,10 +276,12 @@
   <input type="file" id="file-import" accept="application/json,.json,text/plain,*/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px;">
 
   <div id="edit-banner">
-    <span style="display:flex;align-items:center;gap:6px;">
-      <button id="b-edit-prev" title="Vorherige Sequenz" style="padding:5px 10px;">◀</button>
+    <span style="display:flex;flex-direction:column;align-items:stretch;gap:6px;">
       <span id="edit-banner-label">Bearbeite Sequenz …</span>
-      <button id="b-edit-next" title="Nächste Sequenz" style="padding:5px 10px;">▶</button>
+      <span style="display:flex;justify-content:space-between;gap:8px;">
+        <button id="b-edit-prev" title="Vorherige Sequenz" style="padding:5px 12px;">◀</button>
+        <button id="b-edit-next" title="Nächste Sequenz" style="padding:5px 12px;">▶</button>
+      </span>
     </span>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="b-edit-merge" title="Diese und die nächste Sequenz zusammenfügen">⊕ Zusammenfügen</button>
@@ -1227,8 +1230,8 @@ function drawBody(b){
 // Mehrzeiliger Text (F1-04.13): Zeilen aus expliziten Umbruechen (Enter) plus
 // automatischem Umbruch bei LABEL_WRAP_W Zeichenflaechen-Einheiten. Nummern-Labels
 // (isNum) bleiben immer einzeilig.
-const LABEL_WRAP_W = 190;
-function labelFontSize(l){ return l.isNum ? 20.25 : 14.625; }
+const LABEL_WRAP_W = 263; // 190 * 20.25/14.625 - gleich viele Zeichen je Zeile wie vor der Vergroesserung
+function labelFontSize(l){ return 20.25; } // F1-04.15: freier Text so gross wie die Nummern an den Pfeilen
 function layoutLabel(l, c){
   const cx = c || ctx;
   const fs = labelFontSize(l);
@@ -1322,7 +1325,7 @@ function drawStroke(s){
   const pts = s.points;
   ctx.save();
   const color = s.color==='black' ? '#9a9a9a' : (s.color==='green' ? '#2e7d32' : '#4f8fcf');
-  const slim = s.color === 'black';
+  const slim = false; // F1-04.15: graue Pfeile (color 'black') jetzt gleich stark/gross wie blau und gruen
   ctx.strokeStyle = color;
   ctx.lineWidth = slim ? 2 : 4;
   ctx.lineJoin = 'round';
@@ -1739,7 +1742,7 @@ function enterEditMode(index){
   // Banner anzeigen
   document.getElementById('edit-banner').classList.add('active');
   document.getElementById('edit-banner-label').textContent =
-    'Bearbeite Sequenz ' + (index + 1) + ' von ' + project.sequences.length;
+    'Bearbeite\nSequenz\n' + (index + 1) + ' von ' + project.sequences.length; // drei Zeilen (pre-line), Pfeile darunter
 
   // Zusammenfügen nur wenn Folgesequenz vorhanden
   document.getElementById('b-edit-merge').disabled =
@@ -3613,16 +3616,19 @@ function openSequenceViewer(startIndex, listOverlay){
   let idx = startIndex;
   const vo = document.createElement('div');
   vo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:pan-y;';
+  // F1-04.15: Kopfzeile - Dreiecke links/rechts am Rand, Titel in der Mitte (gleiche Hoehe)
+  const head = document.createElement('div');
+  head.style.cssText = 'width:100%;box-sizing:border-box;padding:0 8px;display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;';
   const vtitle = document.createElement('p');
-  vtitle.style.cssText = 'color:#fff;font-size:15px;font-weight:600;margin:0 0 12px;';
+  vtitle.style.cssText = 'color:#fff;font-size:15px;font-weight:600;margin:0;text-align:center;flex:1;';
   const vimg = document.createElement('img');
-  vimg.style.cssText = 'max-width:80vw;max-height:70vh;object-fit:contain;border-radius:10px;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.4);';
+  vimg.style.cssText = 'max-width:92vw;max-height:70vh;object-fit:contain;border-radius:10px;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.4);';
   vimg.draggable = false;
-  const arrowCss = 'position:absolute;top:50%;transform:translateY(-50%);width:48px;height:84px;border:none;border-radius:10px;background:rgba(255,255,255,0.22);color:#fff;font-size:30px;line-height:1;';
+  const arrowCss = 'flex:none;width:48px;height:40px;border:none;border-radius:10px;background:rgba(255,255,255,0.22);color:#fff;font-size:22px;line-height:1;';
   const prev = document.createElement('button');
-  prev.textContent = '◀'; prev.title = 'Vorherige Sequenz'; prev.style.cssText = arrowCss + 'left:4px;';
+  prev.textContent = '◀'; prev.title = 'Vorherige Sequenz'; prev.style.cssText = arrowCss;
   const next = document.createElement('button');
-  next.textContent = '▶'; next.title = 'Nächste Sequenz'; next.style.cssText = arrowCss + 'right:4px;';
+  next.textContent = '▶'; next.title = 'Nächste Sequenz'; next.style.cssText = arrowCss;
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:10px;margin-top:18px;';
   const vedit = document.createElement('button');
@@ -3676,8 +3682,8 @@ function openSequenceViewer(startIndex, listOverlay){
   }, {passive:true});
   window.addEventListener('keydown', onKey, true);
   row.appendChild(vedit); row.appendChild(vclose);
-  vo.appendChild(vtitle); vo.appendChild(vimg); vo.appendChild(row);
-  vo.appendChild(prev); vo.appendChild(next);
+  head.appendChild(prev); head.appendChild(vtitle); head.appendChild(next);
+  vo.appendChild(head); vo.appendChild(vimg); vo.appendChild(row);
   document.body.appendChild(vo);
   show();
 }
