@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.15 (03.10.2026) - TESTVERSION. Basis: F1-04.14. Neu: Ansicht - Dreiecke oben links/rechts auf Hoehe des Titels; Bearbeiten-Balken - Titel oben, Pfeile darunter an den Raendern des Titelblocks; freier Text so gross wie die Pfeil-Nummern (20.25, Umbruchbreite mitskaliert); graue Pfeile gleiche Strichstaerke/Spitze wie blau/gruen (gilt fuer ALLE Zeichnungen, da zur Zeichenzeit berechnet). Vorherige Kopfzeile: F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
+<!-- Schrittfolge-Tool F1-04.16 (04.10.2026) - TESTVERSION. Basis: F1-04.15. Neu: Knopf "Person 2" (Modus + Umfaerben markierter Fuesse/grauer Pfeile): Person 2 = dunkelbraun statt schwarz, hellbraun statt grau, weiss mit braunem Rand; graue Pfeile braun (blau/gruen bleiben). Merkmal p:2 am Fuss/Pfeil, wird ins Folgebild uebernommen. Vorherige Kopfzeile: F1-04.15 (03.10.2026) - TESTVERSION. Basis: F1-04.14. Neu: Ansicht - Dreiecke oben links/rechts auf Hoehe des Titels; Bearbeiten-Balken - Titel oben, Pfeile darunter an den Raendern des Titelblocks; freier Text so gross wie die Pfeil-Nummern (20.25, Umbruchbreite mitskaliert); graue Pfeile gleiche Strichstaerke/Spitze wie blau/gruen (gilt fuer ALLE Zeichnungen, da zur Zeichenzeit berechnet). Vorherige Kopfzeile: F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -66,6 +66,8 @@
   #edit-banner.active{display:flex;}
   #edit-banner button{background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.5);color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;min-height:28px;}
   #edit-banner button:disabled{opacity:0.35;}
+  #b-person2.on{background:#6b3f1d;color:#fff;border-color:#5a3414;}
+  #b-person2.on .icon-char{color:#fff;}
   #edit-banner-label{white-space:pre-line;line-height:1.25;}
   #edit-banner button.save{background:rgba(255,255,255,0.9);color:#a06000;font-weight:700;}
   #split-banner{display:none;background:#c0392b;color:#fff;padding:7px 14px;font-size:13px;font-weight:600;align-items:center;justify-content:space-between;gap:10px;}
@@ -77,7 +79,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.15</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.16</span></p>
   </header>
 
   <div class="toolbar">
@@ -237,6 +239,9 @@
     </div>
     <div class="group">
       <button id="b-clear" title="Alles löschen"><span class="icon-char">🗑️</span></button>
+    </div>
+    <div class="group">
+      <button id="b-person2" title="Person 2 (braun): neue Füße/graue Pfeile werden braun; markiertes Symbol wird umgefärbt" style="min-width:64px;"><span class="icon-char" style="font-size:11px;font-weight:700;letter-spacing:0.2px;">Person 2</span></button>
     </div>
   </div>
   <input type="file" id="bg-file-input" accept="image/*,*/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px;">
@@ -1102,6 +1107,14 @@ function drawGridDots(viewW, viewH){
   }
 }
 
+// F1-04.16: Person 2 (Merkmal p:2 an Fuss bzw. grauem Pfeil) wird braun dargestellt.
+const P2_DARK = '#6b3f1d';   // statt schwarz
+const P2_LIGHT = '#c9a27a';  // statt grau
+const P2_EDGE = '#5a3414';   // Rand statt schwarz
+const P2_ARROW = '#8a5a2b';  // grauer Pfeil bei Person 2
+let placedSelection = null;  // Auswahl-Objekt direkt nach dem Setzen (nicht durch Antippen)
+let person2Mode = false;     // Knopf "Person 2": neu gesetzte Fuesse/graue Pfeile sind Person 2
+
 function soleSubpath(){
   ctx.moveTo(0,-100);
   ctx.bezierCurveTo(35,-100,60,-70,62,-30);
@@ -1159,17 +1172,18 @@ function drawFoot(f){
     return;
   }
 
+  const p2 = (f.p === 2);
   let soleFill = '#ffffff';
-  if(f.color==='gray') soleFill = '#9a9a9a';
-  if(f.color==='black') soleFill = '#13182b';
-  const strapFill = (f.color==='white') ? '#13182b' : '#ffffff';
+  if(f.color==='gray') soleFill = p2 ? P2_LIGHT : '#9a9a9a';
+  if(f.color==='black') soleFill = p2 ? P2_DARK : '#13182b';
+  const strapFill = (f.color==='white') ? (p2 ? P2_DARK : '#13182b') : '#ffffff';
 
   ctx.beginPath();
   soleSubpath();
   ctx.fillStyle = soleFill;
   ctx.fill();
   ctx.lineWidth = 10;
-  ctx.strokeStyle = '#000';
+  ctx.strokeStyle = p2 ? P2_EDGE : '#000';
   ctx.stroke();
 
   ctx.beginPath();
@@ -1177,7 +1191,7 @@ function drawFoot(f){
   ctx.fillStyle = strapFill;
   ctx.fill();
   ctx.lineWidth = 7;
-  ctx.strokeStyle = (f.color==='white') ? '#000' : '#222';
+  ctx.strokeStyle = p2 ? P2_EDGE : ((f.color==='white') ? '#000' : '#222');
   ctx.stroke();
 
   if(f.mark === 'front' || f.mark === 'back'){
@@ -1324,7 +1338,7 @@ function drawStroke(s){
   if(s.points.length<2) return;
   const pts = s.points;
   ctx.save();
-  const color = s.color==='black' ? '#9a9a9a' : (s.color==='green' ? '#2e7d32' : '#4f8fcf');
+  const color = s.color==='black' ? (s.p === 2 ? P2_ARROW : '#9a9a9a') : (s.color==='green' ? '#2e7d32' : '#4f8fcf');
   const slim = false; // F1-04.15: graue Pfeile (color 'black') jetzt gleich stark/gross wie blau und gruen
   ctx.strokeStyle = color;
   ctx.lineWidth = slim ? 2 : 4;
@@ -1793,6 +1807,7 @@ function exitEditMode(save, gotoIndex){
         anchorFeet.forEach((af,i)=>{
           const src = lastTwo[i];
           af.x = src.x; af.y = src.y; af.rot = src.rot;
+          if(src.p === 2) af.p = 2; else delete af.p;
         });
         nextSeq.feet.filter(f=>!(f.color==='white'&&f.anchor)).forEach(f=>{f.x+=dx;f.y+=dy;});
         nextSeq.bodies.forEach(b=>{b.x+=dx;b.y+=dy;});
@@ -2323,6 +2338,22 @@ document.querySelectorAll('[data-tool]').forEach(b=>{
   });
 });
 
+// F1-04.16: Knopf "Person 2" - schaltet den Modus um UND setzt ein markiertes Symbol
+// (Fuss ausser Streifen, grauer Pfeil) auf den neuen Zustand (an = Person 2, aus = Person 1).
+document.getElementById('b-person2').addEventListener('click', ()=>{
+  person2Mode = !person2Mode;
+  document.getElementById('b-person2').classList.toggle('on', person2Mode);
+  if(selected && (selected.type==='feet' || selected.type==='strokes')){
+    const it = getItem(selected);
+    const recolorable = it && ((selected.type==='feet' && it.color !== 'stripes') || (selected.type==='strokes' && it.color === 'black'));
+    if(recolorable && selected !== placedSelection){
+      pushHistory();
+      if(person2Mode) it.p = 2; else delete it.p;
+      draw(); saveState();
+    }
+  }
+  flashStatus(person2Mode ? 'Person 2 (braun) aktiv' : 'Person 1 (Standard)');
+});
 document.getElementById('b-undo').addEventListener('click', undo);
 document.getElementById('b-zoom-in').addEventListener('click', ()=> setZoom(viewScale*1.25));
 document.getElementById('b-zoom-out').addEventListener('click', ()=> setZoom(viewScale/1.25));
@@ -2333,7 +2364,7 @@ function startNewSequenceFrom(feetSource){
   const blackFeet = (feetSource || []).filter(f=>f.color==='black').sort((a,b)=>a.id-b.id);
   const lastTwo = blackFeet; // F1-04.13: ALLE schwarzen Fuesse werden zu weissen Startfuessen
   const carried = lastTwo.length >= 1
-    ? lastTwo.map(f=>({id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}))
+    ? lastTwo.map(f=>{ const nf = {id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}; if(f.p===2) nf.p = 2; return nf; })
     : [];
   state = { feet: carried, bodies: [], labels: [], strokes: [] };
   centerOnContent();
@@ -3231,9 +3262,12 @@ function pointerDown(e){
     pushHistory();
     const mark = parts[2] || null;
     const newFootId = newId();
-    state.feet.push({id:newFootId, x:pos.x, y:pos.y, rot:0, color, mark});
+    const newFoot = {id:newFootId, x:pos.x, y:pos.y, rot:0, color, mark};
+    if(person2Mode && color !== 'stripes') newFoot.p = 2;
+    state.feet.push(newFoot);
     setTool('idle');
     selected = {type:'feet', id:newFootId};
+    placedSelection = selected; // F1-04.16: frisch gesetzt -> "Person 2"-Knopf faerbt es nicht um
     draw(); saveState();
     return;
   }
@@ -3256,6 +3290,7 @@ function pointerDown(e){
   if(currentTool==='pen'){
     pushHistory();
     currentStroke = {id:newId(), points:[pos], color: currentPenColor};
+    if(person2Mode && currentPenColor === 'black') currentStroke.p = 2;
     return;
   }
   if(currentTool==='erase'){
@@ -3469,13 +3504,13 @@ function pointerUp(e){
         stroke.numberLabelId = labelId;
         state.strokes.push(stroke);
         setTool('idle');
-        selected = {type:'strokes', id:stroke.id};
+        selected = {type:'strokes', id:stroke.id}; placedSelection = selected;
         draw(); saveState();
       } else if(stroke.color === 'blue'){
         // blau: keine Nummerierung
         state.strokes.push(stroke);
         setTool('idle');
-        selected = {type:'strokes', id:stroke.id};
+        selected = {type:'strokes', id:stroke.id}; placedSelection = selected;
         draw(); saveState();
       } else {
         // schwarz (=grauer Pfeil): L/R-Dialog
@@ -3489,7 +3524,7 @@ function pointerUp(e){
           state.labels.push({id:labelId, x:mid.x, y:mid.y-31, text:String(num)+side, isNum:true, forStrokeId: stroke.id, numColor:'black'});
           stroke.numberLabelId = labelId;
           setTool('idle');
-          selected = {type:'strokes', id:stroke.id};
+          selected = {type:'strokes', id:stroke.id}; placedSelection = selected;
           draw(); saveState();
         });
       }
@@ -3804,7 +3839,7 @@ document.getElementById('b-restart-from-last').addEventListener('click', ()=>{
       // Koordinatensystem wie alle anderen Sequenzen. Nur die Ansicht zentriert sich.
       let carried;
       if(lastTwo.length >= 1){
-        carried = lastTwo.map(f=>({id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}));
+        carried = lastTwo.map(f=>{ const nf = {id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}; if(f.p===2) nf.p = 2; return nf; });
       } else {
         flashStatus('Letzte Sequenz hat keine schwarzen Füße'); return;
       }
