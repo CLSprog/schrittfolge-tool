@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.16 (04.10.2026) - TESTVERSION. Basis: F1-04.15. Neu: Knopf "Person 2" (Modus + Umfaerben markierter Fuesse/grauer Pfeile): Person 2 = dunkelbraun statt schwarz, hellbraun statt grau, weiss mit braunem Rand; graue Pfeile braun (blau/gruen bleiben). Merkmal p:2 am Fuss/Pfeil, wird ins Folgebild uebernommen. Vorherige Kopfzeile: F1-04.15 (03.10.2026) - TESTVERSION. Basis: F1-04.14. Neu: Ansicht - Dreiecke oben links/rechts auf Hoehe des Titels; Bearbeiten-Balken - Titel oben, Pfeile darunter an den Raendern des Titelblocks; freier Text so gross wie die Pfeil-Nummern (20.25, Umbruchbreite mitskaliert); graue Pfeile gleiche Strichstaerke/Spitze wie blau/gruen (gilt fuer ALLE Zeichnungen, da zur Zeichenzeit berechnet). Vorherige Kopfzeile: F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
+<!-- Schrittfolge-Tool F1-04.17 (05.10.2026) - TESTVERSION. Basis: F1-04.16. Neu: (1) Doppelklick/Doppeltipp bei aktivem Knopf "Person 2" wechselt Fuss/grauen Pfeil zwischen Person 1 und 2 (auch gesperrte Start-/Endfuesse; wirkt beim Speichern auf Anker/Endfuesse der Nachbarsequenz); (2) weisse Fuesse im Bearbeitungsmodus nur in Sequenz 1 setzbar und frei beweglich. Vorherige Kopfzeile: F1-04.16 (04.10.2026) - TESTVERSION. Basis: F1-04.15. Neu: Knopf "Person 2" (Modus + Umfaerben markierter Fuesse/grauer Pfeile): Person 2 = dunkelbraun statt schwarz, hellbraun statt grau, weiss mit braunem Rand; graue Pfeile braun (blau/gruen bleiben). Merkmal p:2 am Fuss/Pfeil, wird ins Folgebild uebernommen. Vorherige Kopfzeile: F1-04.15 (03.10.2026) - TESTVERSION. Basis: F1-04.14. Neu: Ansicht - Dreiecke oben links/rechts auf Hoehe des Titels; Bearbeiten-Balken - Titel oben, Pfeile darunter an den Raendern des Titelblocks; freier Text so gross wie die Pfeil-Nummern (20.25, Umbruchbreite mitskaliert); graue Pfeile gleiche Strichstaerke/Spitze wie blau/gruen (gilt fuer ALLE Zeichnungen, da zur Zeichenzeit berechnet). Vorherige Kopfzeile: F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -79,7 +79,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.16</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.17</span></p>
   </header>
 
   <div class="toolbar">
@@ -966,6 +966,7 @@ let panDownPos = null; // feste Ausgangsposition der aktuellen Pan-Geste (für T
 let panMoved = false;  // true, sobald die Bewegung die Toleranzschwelle überschritten hat
 let spacePanActive = false; // true, solange die Leertaste gedrückt gehalten wird (Temporäres Pan)
 let pendingTap = null; // { hit, downPos, isSameAsSelected } - Entscheidung "Tippen oder Ziehen" ist noch offen
+let p2Candidate = null; // F1-04.17: gesperrter Fuss unter dem Finger bei aktivem 'Person 2'-Knopf
 let lastTapInfo = null; // { type, id, time } - für Doppel-Tipp-Erkennung (Text bearbeiten)
 const DOUBLE_TAP_MS = 400;
 let pendingLabelPos = null; // Position für Text-Eingabe, wird erst bei pointerUp ausgelöst (iOS-Tastatur-Fix)
@@ -1716,12 +1717,78 @@ function createBox(overlay, cssText){
 }
 
 // --- Bearbeitungsmodus ---
+// ---- F1-04.17: Person-Wechsel per Doppelklick/Doppeltipp (nur bei aktivem Knopf "Person 2") ----
+function p2Recolorable(sel){
+  const it = getItem(sel);
+  if(!it) return false;
+  return (sel.type==='feet' && it.color !== 'stripes') || (sel.type==='strokes' && it.color === 'black');
+}
+function togglePersonOf(type, id){
+  const it = state[type] && state[type].find(x=>x.id===id);
+  if(!it) return;
+  const to2 = (it.p !== 2);
+  pushHistory();
+  if(to2) it.p = 2; else delete it.p;
+  draw(); saveState();
+  flashStatus(to2 ? 'Person 2 (braun)' : 'Person 1');
+}
+function handleP2DoubleTap(sel){
+  const now = Date.now();
+  if(lastTapInfo && lastTapInfo.type===sel.type && lastTapInfo.id===sel.id && (now - lastTapInfo.time) < DOUBLE_TAP_MS){
+    lastTapInfo = null;
+    togglePersonOf(sel.type, sel.id);
+    return true;
+  }
+  lastTapInfo = { type: sel.type, id: sel.id, time: now };
+  return false;
+}
+function lockedFootAt(pos){
+  for(let i=state.feet.length-1;i>=0;i--){
+    const f = state.feet[i];
+    if(f.color==='stripes' || !isLocked(f)) continue;
+    if(Math.hypot(f.x-pos.x,f.y-pos.y) < 18) return {type:'feet', id:f.id};
+  }
+  return null;
+}
+// Beim Speichern einer Sequenz: Personenwechsel an Endfuessen -> Anker der Folgesequenz,
+// Personenwechsel an Ankern -> Endfuesse der Vorgaengerin (Zuordnung nach Reihenfolge wie beim Gesamtbild).
+function syncPersonToNeighbors(oldSeq, idx){
+  const seqs = project.sequences;
+  const cur = seqs[idx];
+  if(!cur) return;
+  const P = f => (f.p === 2 ? 2 : 0);
+  const byId = (a,b)=>a.id-b.id;
+  const setP = (f,v)=>{ if(v===2) f.p = 2; else delete f.p; };
+  const oldP = {};
+  if(oldSeq && oldSeq.feet) oldSeq.feet.forEach(f=>{ oldP[f.id] = P(f); });
+  if(idx + 1 < seqs.length){
+    const anchorsN = seqs[idx+1].feet.filter(f=>f.anchor).sort(byId);
+    const lastN = cur.feet.filter(f=>f.color==='black').sort(byId).slice(-anchorsN.length || undefined);
+    if(anchorsN.length) lastN.forEach((bf,k)=>{ if(anchorsN[k] && P(bf) !== (oldP[bf.id]||0)) setP(anchorsN[k], P(bf)); });
+  }
+  if(idx > 0){
+    const anchorsC = cur.feet.filter(f=>f.anchor).sort(byId);
+    const lastP = seqs[idx-1].feet.filter(f=>f.color==='black').sort(byId).slice(-anchorsC.length || undefined);
+    if(anchorsC.length) anchorsC.forEach((af,k)=>{ if(lastP[k] && P(af) !== (oldP[af.id]||0)) setP(lastP[k], P(af)); });
+  }
+}
+// Neu gespeicherte (angehaengte) Sequenz: die Farbe ihrer Anker gilt fuer die Endfuesse der Vorgaengerin.
+function syncAnchorsToPrevBlacks(idx){
+  const seqs = project.sequences;
+  if(idx < 1) return;
+  const anchorsC = seqs[idx].feet.filter(f=>f.anchor).sort((a,b)=>a.id-b.id);
+  if(!anchorsC.length) return;
+  const lastP = seqs[idx-1].feet.filter(f=>f.color==='black').sort((a,b)=>a.id-b.id).slice(-anchorsC.length);
+  anchorsC.forEach((af,k)=>{ if(lastP[k]){ if(af.p===2) lastP[k].p = 2; else delete lastP[k].p; } });
+}
+
 function isLocked(foot){
   if(foot.anchor) return true; // Anker-Füße (aus vorherigem Bild übernommen) sind IMMER gesperrt,
                                 // damit sie nicht versehentlich verschoben werden und die
                                 // Anschluss-Position zum vorherigen Bild verlieren.
   if(!editMode) return false;
-  if(foot.color === 'white') return true;
+  // F1-04.17: In Sequenz 1 (keine Vorgaengerin) sind weisse Fuesse frei beweglich
+  if(foot.color === 'white') return editIndex !== 0;
   if(foot.color === 'black') return !blackFeetUnlocked;
   return false;
 }
@@ -1780,7 +1847,9 @@ function exitEditMode(save, gotoIndex){
   const targetIndex = hasGoto ? gotoIndex : jumpToNext;
 
   if(save){
+    const oldSeqForP = project.sequences[editIndex];
     project.sequences[editIndex] = JSON.parse(JSON.stringify(state));
+    syncPersonToNeighbors(oldSeqForP, editIndex); // F1-04.17
 
     // Wenn Endschritte verändert: Ankerfüße im Folgebild aktualisieren
     if(blackFeetUnlocked && jumpToNext !== null){
@@ -2398,6 +2467,7 @@ document.getElementById('b-new-image').addEventListener('click', ()=>{
       // Speichern und neues Bild (normaler Ablauf wie bisher)
       pushHistory();
       project.sequences.push(JSON.parse(JSON.stringify(state)));
+      syncAnchorsToPrevBlacks(project.sequences.length - 1); // F1-04.17
       startNewSequenceFrom(state.feet);
     },
     ()=>{
@@ -3122,6 +3192,7 @@ function hitTest(pos){
     if(!isLocked(f)) continue;
     const rr = (f.color === 'stripes') ? rStripes : r;
     if(Math.hypot(f.x-pos.x,f.y-pos.y) < rr){
+      if(person2Mode) return null; // F1-04.17: im Person-2-Modus keine Sperr-Hinweise (Farbwechsel ist erlaubt)
       if(editMode && f.color === 'black' && !blackFeetUnlocked){
         showBlackFootUnlockWarning();
       } else if(f.anchor){
@@ -3251,8 +3322,8 @@ function pointerDown(e){
     const parts = currentTool.split('-');
     const color = parts[1];
     // Im Bearbeitungsmodus keine neuen weißen oder schwarzen Füße erlauben
-    if(editMode && color === 'white'){
-      flashStatus('Weiße Füße im Bearbeitungsmodus gesperrt');
+    if(editMode && color === 'white' && editIndex !== 0){
+      flashStatus('Weiße Füße nur in Sequenz 1 setzbar – Startfuß ab Sequenz 2 über schwarzen Endfuß der Vorgängerin');
       return;
     }
     if(editMode && color === 'black' && !blackFeetUnlocked){
@@ -3321,6 +3392,7 @@ function pointerDown(e){
         }
       }
     }
+    p2Candidate = null;
     const hit = hitTest(pos);
     if(hit){
       // WICHTIG: Wir prüfen nicht nur, ob das OBERSTE Symbol an dieser Stelle das
@@ -3343,6 +3415,7 @@ function pointerDown(e){
         selected = hit; // neues Symbol (oberstes an dieser Stelle) sofort sichtbar auswählen
       }
     } else {
+      if(person2Mode) p2Candidate = lockedFootAt(pos); // F1-04.17
       // Leere Fläche: Pan-Geste beginnen. Auswahl bleibt vorerst bestehen -
       // wird nur bei echtem Tippen ohne Ziehen aufgehoben (siehe pointerUp)
       panStart = getClientXY(e);
@@ -3435,6 +3508,13 @@ function pointerUp(e){
   }
   if(currentTool==='move' || currentTool==='idle'){
     if(panStart){
+      if(!panMoved && p2Candidate){
+        // F1-04.17: Tipp auf gesperrten Fuss bei aktivem "Person 2": Doppeltipp wechselt die Person
+        const cand = p2Candidate; p2Candidate = null;
+        panStart = null; panDownPos = null;
+        handleP2DoubleTap(cand);
+        return;
+      }
       if(!panMoved){
         // Reines Tippen auf leere Fläche (ohne Ziehen) -> Auswahl aufheben.
         // KEIN saveState() hier: reines Tippen ändert weder Inhalt noch
@@ -3459,6 +3539,14 @@ function pointerUp(e){
       // Doppel-Tipp-Erkennung: zwei reine Tipps auf dasselbe Textelement innerhalb
       // kurzer Zeit -> Text zur Bearbeitung öffnen (statt normal auszuwählen/durchzuklicken).
       const now = Date.now();
+      // F1-04.17: bei aktivem "Person 2" wechselt ein Doppeltipp auf Fuss/grauen Pfeil die Person
+      if(person2Mode && p2Recolorable(hit) && lastTapInfo && lastTapInfo.type===hit.type &&
+         lastTapInfo.id===hit.id && (now - lastTapInfo.time) < DOUBLE_TAP_MS){
+        lastTapInfo = null;
+        pendingTap = null;
+        togglePersonOf(hit.type, hit.id);
+        return;
+      }
       const isDoubleTap = hit.type==='labels' && lastTapInfo &&
         lastTapInfo.type==='labels' && lastTapInfo.id===hit.id &&
         (now - lastTapInfo.time) < DOUBLE_TAP_MS;
