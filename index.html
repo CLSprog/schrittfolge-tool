@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-04.18 (06.10.2026) - TESTVERSION. Basis: F1-04.17. Fehlerbehebung: doppelt vergebene Symbol-IDs (zwei Fuesse mit derselben ID wurden gemeinsam ausgewaehlt, Aenderungen wirkten nur auf einen). Ursache: der ID-Zaehler wurde beim Verlassen des Bearbeitungsmodus auf den alten Stand zurueckgesetzt bzw. beim Laden aus einem zu kleinen Wert gelesen. Neu: newId() vergibt nie eine bereits verwendete ID; vorhandene Doppel-IDs werden beim Antippen/Bearbeiten automatisch repariert. Vorherige Kopfzeile: F1-04.17 (05.10.2026) - TESTVERSION. Basis: F1-04.16. Neu: (1) Doppelklick/Doppeltipp bei aktivem Knopf "Person 2" wechselt Fuss/grauen Pfeil zwischen Person 1 und 2 (auch gesperrte Start-/Endfuesse; wirkt beim Speichern auf Anker/Endfuesse der Nachbarsequenz); (2) weisse Fuesse im Bearbeitungsmodus nur in Sequenz 1 setzbar und frei beweglich. Vorherige Kopfzeile: F1-04.16 (04.10.2026) - TESTVERSION. Basis: F1-04.15. Neu: Knopf "Person 2" (Modus + Umfaerben markierter Fuesse/grauer Pfeile): Person 2 = dunkelbraun statt schwarz, hellbraun statt grau, weiss mit braunem Rand; graue Pfeile braun (blau/gruen bleiben). Merkmal p:2 am Fuss/Pfeil, wird ins Folgebild uebernommen. Vorherige Kopfzeile: F1-04.15 (03.10.2026) - TESTVERSION. Basis: F1-04.14. Neu: Ansicht - Dreiecke oben links/rechts auf Hoehe des Titels; Bearbeiten-Balken - Titel oben, Pfeile darunter an den Raendern des Titelblocks; freier Text so gross wie die Pfeil-Nummern (20.25, Umbruchbreite mitskaliert); graue Pfeile gleiche Strichstaerke/Spitze wie blau/gruen (gilt fuer ALLE Zeichnungen, da zur Zeichenzeit berechnet). Vorherige Kopfzeile: F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
+<!-- Schrittfolge-Tool F1-04.19 (06.10.2026) - TESTVERSION. Basis: F1-04.18. Neu: (1) Automatische BAK-Sicherung (wie ein Undo) vor jedem Laden/Ersetzen von Projektdaten, die letzten 5 Staende bleiben im Tool, Knopf "BAK" zum Wiederherstellen. (2) Alle Dateinamen (JSON, PowerPoint, Bilder) nach Schema P01_{Bezeichnung}_V04-19_JJJJMMTT-HHMM_CLA. Vorherige Kopfzeile: F1-04.18 (06.10.2026) - TESTVERSION. Basis: F1-04.17. Fehlerbehebung: doppelt vergebene Symbol-IDs (zwei Fuesse mit derselben ID wurden gemeinsam ausgewaehlt, Aenderungen wirkten nur auf einen). Ursache: der ID-Zaehler wurde beim Verlassen des Bearbeitungsmodus auf den alten Stand zurueckgesetzt bzw. beim Laden aus einem zu kleinen Wert gelesen. Neu: newId() vergibt nie eine bereits verwendete ID; vorhandene Doppel-IDs werden beim Antippen/Bearbeiten automatisch repariert. Vorherige Kopfzeile: F1-04.17 (05.10.2026) - TESTVERSION. Basis: F1-04.16. Neu: (1) Doppelklick/Doppeltipp bei aktivem Knopf "Person 2" wechselt Fuss/grauen Pfeil zwischen Person 1 und 2 (auch gesperrte Start-/Endfuesse; wirkt beim Speichern auf Anker/Endfuesse der Nachbarsequenz); (2) weisse Fuesse im Bearbeitungsmodus nur in Sequenz 1 setzbar und frei beweglich. Vorherige Kopfzeile: F1-04.16 (04.10.2026) - TESTVERSION. Basis: F1-04.15. Neu: Knopf "Person 2" (Modus + Umfaerben markierter Fuesse/grauer Pfeile): Person 2 = dunkelbraun statt schwarz, hellbraun statt grau, weiss mit braunem Rand; graue Pfeile braun (blau/gruen bleiben). Merkmal p:2 am Fuss/Pfeil, wird ins Folgebild uebernommen. Vorherige Kopfzeile: F1-04.15 (03.10.2026) - TESTVERSION. Basis: F1-04.14. Neu: Ansicht - Dreiecke oben links/rechts auf Hoehe des Titels; Bearbeiten-Balken - Titel oben, Pfeile darunter an den Raendern des Titelblocks; freier Text so gross wie die Pfeil-Nummern (20.25, Umbruchbreite mitskaliert); graue Pfeile gleiche Strichstaerke/Spitze wie blau/gruen (gilt fuer ALLE Zeichnungen, da zur Zeichenzeit berechnet). Vorherige Kopfzeile: F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -79,7 +79,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-04.18</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-04.19</span></p>
   </header>
 
   <div class="toolbar">
@@ -218,6 +218,7 @@
            zwischen Drucker/new und zwischen Sequenzen/Löschen (siehe .group + .group CSS). -->
       <button id="b-data-import" title="Projektdaten laden (Datei)"><span class="icon-char">📂</span></button>
       <button id="b-data-export" title="Speichern (Aktuelles Projekt / Alle Projekte)"><span class="icon-char">💾</span></button>
+      <button id="b-bak" title="BAK: Stand vor dem letzten Laden wiederherstellen"><span class="icon-char" style="font-size:10px;font-weight:700;letter-spacing:0.3px;">BAK</span></button>
       <!-- b-export, b-gesamtbild, b-pptx sind seit F1-02.14 ausgeblendet: ihre
            Funktion lebt vollständig im neuen zusammengefassten "🖨️"-Button
            (b-print) weiter, der eine Auswahl zwischen den dreien zeigt.
@@ -1492,6 +1493,119 @@ function updateSeqCount(){
 
 function sanitizeFileName(name){
   return (name||'Projekt').replace(/[\\/:*?"<>|]+/g,'_').replace(/\s+/g,'').trim() || 'Projekt';
+}
+
+// ---- F1-04.19: Dateinamen nach Schema P01_{Bezeichnung}_V04-19_JJJJMMTT-HHMM_CLA ----
+const FILE_PROJECT_CODE = 'P01';
+const FILE_VERSION_TAG = 'V04-19';
+function fileBase(name){
+  // Bezeichnung ohne "_" (Leerzeichen oder "-" erlaubt), ohne Zeichen, die Dateisysteme nicht moegen
+  return String(name || 'Projekt').replace(/[\\/:*?"<>|]+/g,'-').replace(/_+/g,'-').replace(/\s+/g,' ').trim() || 'Projekt';
+}
+function fileStamp(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return d.getFullYear() + p(d.getMonth()+1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+}
+function makeFileName(bezeichnung, ext){
+  return FILE_PROJECT_CODE + '_' + fileBase(bezeichnung) + '_' + FILE_VERSION_TAG + '_' + fileStamp() + '_CLA.' + ext;
+}
+
+// ---- F1-04.19: BAK-Sicherung (Undo fuer Laden/Ersetzen), letzte 5 Staende ----
+const BAK_KEY = 'schrittfolge-bak';
+const BAK_MAX = 5;
+async function bakRead(){
+  try{
+    const v = await storeGet(BAK_KEY);
+    const a = v ? JSON.parse(v) : [];
+    return Array.isArray(a) ? a : [];
+  }catch(e){ return []; }
+}
+// Legt eine BAK des aktuellen Gesamtstands an. Liefert true bei Erfolg (auch wenn nichts zu sichern ist).
+async function bakCreate(reason){
+  try{
+    commitActiveProjectState();
+    if(!projects || Object.keys(projects).length === 0) return true;
+    const entry = {
+      ts: Date.now(),
+      reason: reason || '',
+      names: Object.keys(projects),
+      data: JSON.stringify({ projects, activeProjectName, bgImagePositions })
+    };
+    let list = await bakRead();
+    list.unshift(entry);
+    list = list.slice(0, BAK_MAX);
+    // Falls der Speicher voll ist: aeltere Staende nacheinander verwerfen und erneut versuchen
+    while(list.length > 0){
+      try{ await storeSet(BAK_KEY, JSON.stringify(list)); return true; }
+      catch(e){ if(list.length === 1) break; list.pop(); }
+    }
+    return false;
+  }catch(e){ return false; }
+}
+// Fuehrt fn aus, nachdem eine BAK angelegt wurde. Bei Fehler wird nachgefragt.
+function bakThen(reason, fn){
+  bakCreate(reason).then(ok=>{
+    if(ok){ fn(); }
+    else {
+      showConfirm('Die BAK-Sicherung konnte nicht angelegt werden (Speicher voll?). Trotzdem fortfahren?', fn, 'Ja, ohne BAK');
+    }
+  });
+}
+function bakStamp(ts){
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2,'0');
+  return p(d.getDate()) + '.' + p(d.getMonth()+1) + '.' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+async function showBakDialog(){
+  const list = await bakRead();
+  const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;');
+  const box = createBox(overlay, 'background:#fff;border-radius:14px;padding:18px;max-width:340px;width:90vw;max-height:80vh;overflow:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);');
+  const title = document.createElement('p');
+  title.textContent = 'BAK – Stand wiederherstellen';
+  title.style.cssText = 'margin:0 0 6px;font-size:15px;font-weight:600;text-align:center;';
+  box.appendChild(title);
+  const hint = document.createElement('p');
+  hint.textContent = 'Vor jedem Laden einer Datei wird der bisherige Stand automatisch gesichert (die letzten ' + BAK_MAX + ').';
+  hint.style.cssText = 'margin:0 0 12px;font-size:11px;color:#666;text-align:center;';
+  box.appendChild(hint);
+  if(list.length === 0){
+    const empty = document.createElement('p');
+    empty.textContent = 'Noch keine BAK vorhanden.';
+    empty.style.cssText = 'margin:8px 0 14px;font-size:13px;text-align:center;';
+    box.appendChild(empty);
+  }
+  list.forEach((entry)=>{
+    const b = document.createElement('button');
+    b.style.cssText = 'width:100%;margin-bottom:8px;padding:10px;border:none;border-radius:10px;background:#fff3dd;color:#531;font-size:13px;text-align:left;';
+    const names = (entry.names || []).join(', ');
+    b.innerHTML = '<b>' + bakStamp(entry.ts) + '</b><br><span style="font-size:11px;">' +
+      (entry.reason ? entry.reason + ' · ' : '') + (entry.names ? entry.names.length : 0) + ' Projekt(e)' +
+      (names ? ': ' + names.replace(/</g,'&lt;') : '') + '</span>';
+    b.addEventListener('click', ()=>{
+      document.body.removeChild(overlay);
+      showConfirm('Stand vom ' + bakStamp(entry.ts) + ' wiederherstellen? Der aktuelle Stand wird dabei ersetzt.', ()=>{
+        try{
+          const d = JSON.parse(entry.data);
+          pushHistory();
+          projects = d.projects || {};
+          bgImagePositions = d.bgImagePositions || {};
+          activeProjectName = d.activeProjectName && projects[d.activeProjectName] ? d.activeProjectName : Object.keys(projects)[0];
+          activateProject(activeProjectName);
+          saveState();
+          flashStatus('BAK vom ' + bakStamp(entry.ts) + ' wiederhergestellt');
+        }catch(e){ flashStatus('BAK nicht lesbar'); }
+      }, 'Ja, wiederherstellen');
+    });
+    box.appendChild(b);
+  });
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Schließen';
+  btnCancel.style.cssText = 'width:100%;padding:10px;border:none;border-radius:10px;background:#eee;color:#555;font-size:13px;';
+  btnCancel.addEventListener('click', ()=> document.body.removeChild(overlay));
+  box.appendChild(btnCancel);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 // Sichert den aktuellen Arbeitsstand (state, idCounter, view) ins aktive Projekt-Objekt zurück.
@@ -2828,8 +2942,7 @@ function exportCurrentImage(){
   try{
     const off = renderStateCanvas(state);
     const dataUrl = off.toDataURL('image/png');
-    const prefix = sanitizeFileName(activeProjectName);
-    const name = prefix + '_Sequenz_' + String(project.sequences.length+1).padStart(3,'0') + '.png';
+    const name = makeFileName((activeProjectName || 'Projekt') + ' Sequenz ' + String(project.sequences.length+1).padStart(3,'0'), 'png');
     if(IN_CLAUDE){ showImageOverlay(dataUrl); }
     else { downloadDataUrl(name, dataUrl); flashStatus('Bild gespeichert'); }
   }catch(err){
@@ -2861,11 +2974,11 @@ function buildExportPayload(exportType){
   if(exportType === 'single'){
     const p = projects[activeProjectName];
     const data = { app:'schrittfolge', version:36, type:'single', projectName: activeProjectName, project: p, bgImagePositions };
-    const fname = sanitizeFileName(activeProjectName) + '_' + dateStamp() + '.json';
+    const fname = makeFileName(activeProjectName, 'json');
     return { data, fname };
   } else {
     const data = { app:'schrittfolge', version:36, type:'all', projects, activeProjectName, bgImagePositions };
-    const fname = 'AlleProjekte_' + dateStamp() + '.json';
+    const fname = makeFileName('Alle Projekte', 'json');
     return { data, fname };
   }
 }
@@ -3106,12 +3219,12 @@ function exportProjectData(){
 
   const btnSingle = document.createElement('button');
   btnSingle.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#ddeeff;color:#114;font-size:14px;font-weight:600;';
-  btnSingle.innerHTML = '📄 Aktuelles Projekt<br><span style="font-size:11px;font-weight:400;color:#446;">' + sanitizeFileName(activeProjectName) + '_' + dateStamp() + '.json</span>';
+  btnSingle.innerHTML = '📄 Aktuelles Projekt<br><span style="font-size:11px;font-weight:400;color:#446;">' + makeFileName(activeProjectName, 'json') + '</span>';
   btnSingle.addEventListener('click', ()=>{ document.body.removeChild(overlay); doExportSingle(); });
 
   const btnAll = document.createElement('button');
   btnAll.style.cssText = 'width:100%;margin-bottom:10px;padding:12px;border:none;border-radius:10px;background:#eeffdd;color:#141;font-size:14px;font-weight:600;';
-  btnAll.innerHTML = '📦 Alle Projekte<br><span style="font-size:11px;font-weight:400;color:#464;">AlleProjekte_' + dateStamp() + '.json</span>';
+  btnAll.innerHTML = '📦 Alle Projekte<br><span style="font-size:11px;font-weight:400;color:#464;">' + makeFileName('Alle Projekte', 'json') + '</span>';
   btnAll.addEventListener('click', ()=>{ document.body.removeChild(overlay); doExportAll(); });
 
   const btnCancel = document.createElement('button');
@@ -3147,20 +3260,24 @@ function importProjectDataFromText(text){
         showConfirm(
           'Projekt „' + name + '" existiert bereits. Soll es überschrieben werden?',
           ()=>{
-            pushHistory();
-            projects[name] = data.project;
-            activateProject(name);
-            saveState();
-            flashStatus('Projekt „' + name + '" geladen');
+            bakThen('vor Laden von „' + name + '"', ()=>{
+              pushHistory();
+              projects[name] = data.project;
+              activateProject(name);
+              saveState();
+              flashStatus('Projekt „' + name + '" geladen (BAK angelegt)');
+            });
           },
           'Ja, überschreiben'
         );
       } else {
-        pushHistory();
-        projects[name] = data.project;
-        activateProject(name);
-        saveState();
-        flashStatus('Projekt „' + name + '" hinzugefügt');
+        bakThen('vor Hinzufügen von „' + name + '"', ()=>{
+          pushHistory();
+          projects[name] = data.project;
+          activateProject(name);
+          saveState();
+          flashStatus('Projekt „' + name + '" hinzugefügt (BAK angelegt)');
+        });
       }
       return;
     }
@@ -3171,13 +3288,15 @@ function importProjectDataFromText(text){
       showConfirm(
         'Alle aktuellen Projekte werden ersetzt. Fortfahren?',
         ()=>{
-          pushHistory();
-          projects = data.projects;
-          activeProjectName = data.activeProjectName && projects[data.activeProjectName]
-            ? data.activeProjectName : Object.keys(projects)[0];
-          activateProject(activeProjectName);
-          saveState();
-          flashStatus('Alle Projekte geladen');
+          bakThen('vor Laden aller Projekte', ()=>{
+            pushHistory();
+            projects = data.projects;
+            activeProjectName = data.activeProjectName && projects[data.activeProjectName]
+              ? data.activeProjectName : Object.keys(projects)[0];
+            activateProject(activeProjectName);
+            saveState();
+            flashStatus('Alle Projekte geladen (BAK angelegt)');
+          });
         },
         'Ja, ersetzen'
       );
@@ -3186,16 +3305,18 @@ function importProjectDataFromText(text){
 
     // --- Altes Legacy-Einzelprojekt-Format (vor v36) ---
     const importName = '7 Sterne';
-    pushHistory();
-    projects[importName] = {
-      sequences: data.sequences || [],
-      state: data.current || { feet:[], bodies:[], labels:[], strokes:[] },
-      idCounter: data.idCounter || 1,
-      viewOffset: {x:0,y:0}, viewScale: 1
-    };
-    activateProject(importName);
-    saveState();
-    flashStatus('Daten geladen (Legacy-Format)');
+    bakThen('vor Laden (Legacy-Format)', ()=>{
+      pushHistory();
+      projects[importName] = {
+        sequences: data.sequences || [],
+        state: data.current || { feet:[], bodies:[], labels:[], strokes:[] },
+        idCounter: data.idCounter || 1,
+        viewOffset: {x:0,y:0}, viewScale: 1
+      };
+      activateProject(importName);
+      saveState();
+      flashStatus('Daten geladen (Legacy-Format, BAK angelegt)');
+    });
 
   }catch(e){ flashStatus('Datei ungültig'); }
 }
@@ -3986,6 +4107,7 @@ document.getElementById('b-restart-from-last').addEventListener('click', ()=>{
   );
 });
 document.getElementById('b-data-export').addEventListener('click', exportProjectData);
+document.getElementById('b-bak').addEventListener('click', showBakDialog);
 document.getElementById('b-data-import').addEventListener('click', function(){
   try{ showImportSourceDialog(); }
   catch(e){ alert('Fehler beim Öffnen des Laden-Dialogs:\n' + (e && e.message ? e.message : e)); }
@@ -4478,7 +4600,7 @@ function exportGesamtbild(){
     try{
       const longCanvas = buildGesamtbild(seqs);
       const dataUrl = longCanvas.toDataURL('image/png');
-      const name = (activeProjectName || 'Schrittfolge') + '_Gesamtbild_' + dateStamp() + '.png';
+      const name = makeFileName((activeProjectName || 'Schrittfolge') + ' Gesamtbild', 'png');
       if(IN_CLAUDE){ showImageOverlay(dataUrl); }
       else { downloadDataUrl(name, dataUrl); flashStatus('Gesamtbild gespeichert'); }
     }catch(err){ flashStatus('Fehler: ' + err.message); }
@@ -4542,7 +4664,7 @@ async function exportPPTX(){
       });
     }
 
-    const fileName = (activeProjectName || 'Schrittfolge') + '_' + dateStamp() + '.pptx';
+    const fileName = makeFileName(activeProjectName || 'Schrittfolge', 'pptx');
 
     // 5) In der Claude-Vorschau ist kein echter Download möglich
     if(IN_CLAUDE){
