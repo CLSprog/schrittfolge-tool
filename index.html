@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Schrittfolge-Tool F1-05.0 (09.10.2026) - OFFIZIELLE VERSION. Inhaltlich identisch mit F1-04.20, nur umbenannt (neue Hauptversion 5). Vorherige Kopfzeile: F1-04.20 (08.10.2026) - TESTVERSION. Basis: F1-04.19. Neu: Nummerierung der grauen Pfeile getrennt nach Person: Person 2 (braun) zaehlt wieder bei 1 und setzt nur die braunen Pfeile fort, Person 1 (grau) zaehlt nur die grauen Pfeile weiter. Vorherige Kopfzeile: F1-04.19 (06.10.2026) - TESTVERSION. Basis: F1-04.18. Neu: (1) Automatische BAK-Sicherung (wie ein Undo) vor jedem Laden/Ersetzen von Projektdaten, die letzten 5 Staende bleiben im Tool, Knopf "BAK" zum Wiederherstellen. (2) Alle Dateinamen (JSON, PowerPoint, Bilder) nach Schema P01_{Bezeichnung}_V04-19_JJJJMMTT-HHMM_CLA. Vorherige Kopfzeile: F1-04.18 (06.10.2026) - TESTVERSION. Basis: F1-04.17. Fehlerbehebung: doppelt vergebene Symbol-IDs (zwei Fuesse mit derselben ID wurden gemeinsam ausgewaehlt, Aenderungen wirkten nur auf einen). Ursache: der ID-Zaehler wurde beim Verlassen des Bearbeitungsmodus auf den alten Stand zurueckgesetzt bzw. beim Laden aus einem zu kleinen Wert gelesen. Neu: newId() vergibt nie eine bereits verwendete ID; vorhandene Doppel-IDs werden beim Antippen/Bearbeiten automatisch repariert. Vorherige Kopfzeile: F1-04.17 (05.10.2026) - TESTVERSION. Basis: F1-04.16. Neu: (1) Doppelklick/Doppeltipp bei aktivem Knopf "Person 2" wechselt Fuss/grauen Pfeil zwischen Person 1 und 2 (auch gesperrte Start-/Endfuesse; wirkt beim Speichern auf Anker/Endfuesse der Nachbarsequenz); (2) weisse Fuesse im Bearbeitungsmodus nur in Sequenz 1 setzbar und frei beweglich. Vorherige Kopfzeile: F1-04.16 (04.10.2026) - TESTVERSION. Basis: F1-04.15. Neu: Knopf "Person 2" (Modus + Umfaerben markierter Fuesse/grauer Pfeile): Person 2 = dunkelbraun statt schwarz, hellbraun statt grau, weiss mit braunem Rand; graue Pfeile braun (blau/gruen bleiben). Merkmal p:2 am Fuss/Pfeil, wird ins Folgebild uebernommen. Vorherige Kopfzeile: F1-04.15 (03.10.2026) - TESTVERSION. Basis: F1-04.14. Neu: Ansicht - Dreiecke oben links/rechts auf Hoehe des Titels; Bearbeiten-Balken - Titel oben, Pfeile darunter an den Raendern des Titelblocks; freier Text so gross wie die Pfeil-Nummern (20.25, Umbruchbreite mitskaliert); graue Pfeile gleiche Strichstaerke/Spitze wie blau/gruen (gilt fuer ALLE Zeichnungen, da zur Zeichenzeit berechnet). Vorherige Kopfzeile: F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
+<!-- Schrittfolge-Tool F1-05.1 (09.10.2026) - TESTVERSION. Basis: F1-05.0. NEU: Sequenz einfuegen (zwischen zwei Sequenzen, Weiss = Ende der Vorgaengerin, Schwarz = Anfang der Folgesequenz), Sequenz loeschen mit Rueckfrage und automatischer BAK, Hinweis beim Antippen gesperrter Startfuesse. Vorherige Kopfzeile: F1-05.0 (09.10.2026) - OFFIZIELLE VERSION. Inhaltlich identisch mit F1-04.20, nur umbenannt (neue Hauptversion 5). Vorherige Kopfzeile: F1-04.20 (08.10.2026) - TESTVERSION. Basis: F1-04.19. Neu: Nummerierung der grauen Pfeile getrennt nach Person: Person 2 (braun) zaehlt wieder bei 1 und setzt nur die braunen Pfeile fort, Person 1 (grau) zaehlt nur die grauen Pfeile weiter. Vorherige Kopfzeile: F1-04.19 (06.10.2026) - TESTVERSION. Basis: F1-04.18. Neu: (1) Automatische BAK-Sicherung (wie ein Undo) vor jedem Laden/Ersetzen von Projektdaten, die letzten 5 Staende bleiben im Tool, Knopf "BAK" zum Wiederherstellen. (2) Alle Dateinamen (JSON, PowerPoint, Bilder) nach Schema P01_{Bezeichnung}_V04-19_JJJJMMTT-HHMM_CLA. Vorherige Kopfzeile: F1-04.18 (06.10.2026) - TESTVERSION. Basis: F1-04.17. Fehlerbehebung: doppelt vergebene Symbol-IDs (zwei Fuesse mit derselben ID wurden gemeinsam ausgewaehlt, Aenderungen wirkten nur auf einen). Ursache: der ID-Zaehler wurde beim Verlassen des Bearbeitungsmodus auf den alten Stand zurueckgesetzt bzw. beim Laden aus einem zu kleinen Wert gelesen. Neu: newId() vergibt nie eine bereits verwendete ID; vorhandene Doppel-IDs werden beim Antippen/Bearbeiten automatisch repariert. Vorherige Kopfzeile: F1-04.17 (05.10.2026) - TESTVERSION. Basis: F1-04.16. Neu: (1) Doppelklick/Doppeltipp bei aktivem Knopf "Person 2" wechselt Fuss/grauen Pfeil zwischen Person 1 und 2 (auch gesperrte Start-/Endfuesse; wirkt beim Speichern auf Anker/Endfuesse der Nachbarsequenz); (2) weisse Fuesse im Bearbeitungsmodus nur in Sequenz 1 setzbar und frei beweglich. Vorherige Kopfzeile: F1-04.16 (04.10.2026) - TESTVERSION. Basis: F1-04.15. Neu: Knopf "Person 2" (Modus + Umfaerben markierter Fuesse/grauer Pfeile): Person 2 = dunkelbraun statt schwarz, hellbraun statt grau, weiss mit braunem Rand; graue Pfeile braun (blau/gruen bleiben). Merkmal p:2 am Fuss/Pfeil, wird ins Folgebild uebernommen. Vorherige Kopfzeile: F1-04.15 (03.10.2026) - TESTVERSION. Basis: F1-04.14. Neu: Ansicht - Dreiecke oben links/rechts auf Hoehe des Titels; Bearbeiten-Balken - Titel oben, Pfeile darunter an den Raendern des Titelblocks; freier Text so gross wie die Pfeil-Nummern (20.25, Umbruchbreite mitskaliert); graue Pfeile gleiche Strichstaerke/Spitze wie blau/gruen (gilt fuer ALLE Zeichnungen, da zur Zeichenzeit berechnet). Vorherige Kopfzeile: F1-04.14 (03.10.2026) - TESTVERSION. Basis: F1-04.13. Neu: Vor-/Zurueck-Pfeile in der Sequenz-Ansicht (Dreiecke, Wischen, Pfeiltasten, Knopf "Bearbeiten") und im Bearbeitungsmodus (Pfeile im orangen Balken mit Rueckfrage Speichern/Verwerfen/Bleiben). Vorherige Kopfzeile: F1-04.13 (30.09.2026) - TESTVERSION. Basis: F1-04.11. Neu: (1) Text mehrzeilig (Enter = neue Zeile, automatischer Umbruch, Rahmen nur bei Eingabe/Bearbeitung); (2) ALLE schwarzen Fuesse werden im Folgebild zu weissen Startfuessen (nicht mehr nur zwei). Vorherige Kopfzeile: F1-04.11 (17.07.2026) - TESTVERSION. Basis: F1-04.10. Diagnose-Fix: Bei einer Nutzerin funktionierte "Laden" trotz F1-04.10 weiterhin nicht - weder im Home-Bildschirm-App-Modus NOCH in einem normalen Safari-Tab, ohne jede sichtbare Fehlermeldung. Das deutet auf einen unbehandelten JavaScript-Fehler auf ihrem spezifischen Geraet/iOS-Version hin. Nach demselben Muster wie beim Android-Diagnose-Fix (F1-03.6): Notfall-alert() an allen Stellen im Laden-Pfad ergaenzt (Button-Klick-Handler, loadTextLocal(), Datei-Input-change-Handler, unbehandelte Promise-Rejection von loadTextLocal() beim Aufruf ohne await). Damit sollte beim naechsten Testversuch in JEDEM Fall eine sichtbare Fehlermeldung erscheinen, falls weiterhin etwas schiefgeht - das zeigt dann den eigentlichen technischen Grund. Sonst unveraendert zu F1-04.10: display:none -> unsichtbare Positionierung bei beiden Datei-Inputs (file-import, bg-file-input). Basis F1-04.4 (Ordnerauswahl, Token-Refresh, Speichern/Laden-Umbenennung, Bild-Filter) + octet-stream-Fix (F1-04.5) + iOS-Teilen-Fix (F1-04.6) + Android-Download-Weg-Korrektur (F1-04.8) + Auswahlfenster nur auf Android (F1-04.9). -->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -79,7 +79,7 @@
 <div id="app">
   <header>
     <h1>Schrittfolge-Tool</h1>
-    <p class="sub"><span style="color:#bbb;">F1-05.0</span></p>
+    <p class="sub"><span style="color:#bbb;">F1-05.1</span></p>
   </header>
 
   <div class="toolbar">
@@ -1497,7 +1497,7 @@ function sanitizeFileName(name){
 
 // ---- F1-04.19: Dateinamen nach Schema P01_{Bezeichnung}_V04-19_JJJJMMTT-HHMM_CLA ----
 const FILE_PROJECT_CODE = 'P01';
-const FILE_VERSION_TAG = 'V05-00';
+const FILE_VERSION_TAG = 'V05-01';
 function fileBase(name){
   // Bezeichnung ohne "_" (Leerzeichen oder "-" erlaubt), ohne Zeichen, die Dateisysteme nicht moegen
   return String(name || 'Projekt').replace(/[\\/:*?"<>|]+/g,'-').replace(/_+/g,'-').replace(/\s+/g,' ').trim() || 'Projekt';
@@ -3369,7 +3369,16 @@ function hitTest(pos){
       if(editMode && f.color === 'black' && !blackFeetUnlocked){
         showBlackFootUnlockWarning();
       } else if(f.anchor){
-        flashStatus('Anker-Fuß gesperrt (Anschluss zum vorherigen Bild)');
+        if(editMode && editIndex > 0){
+          const vn = editIndex;
+          showConfirm(
+            'Die weißen Startfüße sind das Ende von Sequenz ' + vn + ' und hier gesperrt.\nÄnderung nur dort möglich; die Folgesequenzen werden dann angepasst.',
+            ()=>{ editNavigate(-1); },
+            'Zu Sequenz ' + vn
+          );
+        } else {
+          flashStatus('Anker-Fuß gesperrt (Anschluss zum vorherigen Bild)');
+        }
       }
       return null;
     }
@@ -3986,6 +3995,27 @@ function openSequenceViewer(startIndex, listOverlay){
 }
 
 
+// F1-05.1: Neue Sequenz zwischen Sequenz i und i+1 einfuegen.
+// Weiss (Anker) = schwarze Fuesse der Vorgaengerin, Schwarz = Anker der Folgesequenz (im Koordinatensystem der Vorgaengerin).
+function insertSequenceAfter(i){
+  const seqs = project.sequences;
+  const prev = seqs[i], next = seqs[i+1];
+  if(!prev || !next) return;
+  const byId = (a,b)=>a.id-b.id;
+  const prevBlacks = prev.feet.filter(f=>f.color==='black').sort(byId);
+  const anchorsN = next.feet.filter(f=>f.anchor).sort(byId);
+  const offs = computeSequenceWorldOffsets(seqs);
+  const dx = offs[i+1].dx - offs[i].dx, dy = offs[i+1].dy - offs[i].dy;
+  pushHistory();
+  const whites = prevBlacks.map(f=>{ const nf = {id:newId(), x:f.x, y:f.y, rot:f.rot, color:'white', anchor:true}; if(f.p===2) nf.p = 2; return nf; });
+  const blacks = anchorsN.map(f=>{ const nf = {id:newId(), x:f.x+dx, y:f.y+dy, rot:f.rot, color:'black'}; if(f.p===2) nf.p = 2; return nf; });
+  seqs.splice(i+1, 0, { feet:[...whites, ...blacks], bodies:[], labels:[], strokes:[] });
+  saveState();
+  updateSeqCount();
+  enterEditMode(i+1);
+  flashStatus('Neue Sequenz ' + (i+2) + ' eingefügt – Weg zwischen Weiß und Schwarz zeichnen');
+}
+
 function showSequencesOverlay(){
   const overlay = createOverlay('position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;');
   const box = createBox(overlay, 'background:#fff;border-radius:12px;padding:14px;max-width:420px;width:92vw;max-height:80vh;overflow:auto;box-shadow:0 4px 18px rgba(0,0,0,0.3);');
@@ -4026,14 +4056,37 @@ function showSequencesOverlay(){
     del.textContent = 'Löschen';
     del.style.cssText = 'background:#f3dede;color:#a11;border:none;border-radius:8px;padding:6px 10px;font-size:12px;';
     del.addEventListener('click', ()=>{
-      pushHistory();
-      project.sequences.splice(i,1);
-      saveState();
-      document.body.removeChild(overlay);
-      showSequencesOverlay();
+      showConfirm(
+        'Sequenz ' + (i+1) + ' wirklich löschen?\nVorher wird automatisch ein BAK angelegt.',
+        ()=>{
+          bakThen('vor Löschen von Sequenz ' + (i+1), ()=>{
+            pushHistory();
+            project.sequences.splice(i,1);
+            saveState();
+            if(overlay.parentNode) document.body.removeChild(overlay);
+            showSequencesOverlay();
+            flashStatus('Sequenz ' + (i+1) + ' gelöscht (BAK angelegt)');
+          });
+        },
+        'Ja, löschen'
+      );
     });
     r.appendChild(thumb); r.appendChild(lab); r.appendChild(view); r.appendChild(edit); r.appendChild(del);
     box.appendChild(r);
+    if(i < project.sequences.length - 1){
+      const ins = document.createElement('div');
+      ins.style.cssText = 'text-align:center;padding:2px 0;';
+      const ib = document.createElement('button');
+      ib.textContent = '＋ Sequenz einfügen';
+      ib.title = 'Neue Sequenz zwischen Sequenz ' + (i+1) + ' und ' + (i+2) + ' einfügen';
+      ib.style.cssText = 'background:#eef4ff;color:#226;border:1px dashed #99b;border-radius:8px;padding:3px 12px;font-size:11px;';
+      ib.addEventListener('click', ()=>{
+        document.body.removeChild(overlay);
+        insertSequenceAfter(i);
+      });
+      ins.appendChild(ib);
+      box.appendChild(ins);
+    }
   });
 
   const closeBtn = document.createElement('button');
