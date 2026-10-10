@@ -1,7 +1,7 @@
-// Schrittfolge-Tool – Service Worker
-// WICHTIG: CACHE_VERSION bei jedem Update der App hochzählen (v2 -> v3 -> ...).
+// Schrittfolge-Tool – Service Worker (F1-05.2)
+// WICHTIG: CACHE_VERSION bei jedem Update der App hochzählen.
 // Der Cache-Name enthält die Version, damit alte Caches automatisch verworfen werden.
-const CACHE_VERSION = 'v52-F1-05-1';
+const CACHE_VERSION = 'v53-F1-05-2';
 const CACHE = 'schrittfolge-' + CACHE_VERSION;
 
 const FILES_TO_CACHE = [
@@ -11,6 +11,8 @@ const FILES_TO_CACHE = [
   './icon-512.png',
   './apple-touch-icon.png'
 ];
+
+const INDEX_URL = new URL('./index.html', self.registration.scope).href;
 
 // Beim Installieren: Dateien in den Cache laden
 self.addEventListener('install', e => {
@@ -32,22 +34,35 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Bei jeder Anfrage: ZUERST versuchen aktuelle Version aus dem Netz zu laden.
-// Nur wenn kein Internet verfügbar ist, wird auf den Cache zurückgefallen.
-// Das stellt sicher, dass neue App-Versionen sofort erkannt werden,
-// während die App offline trotzdem funktioniert (Cache als Fallback).
+// Anfragen: NUR GET-Anfragen an die eigene Seite werden bearbeitet.
+// Alles andere (Microsoft-Login/Graph, GitHub-API, pCloud, POST/PUT, Teil-Downloads)
+// wird gar nicht angefasst und läuft unverändert am Service Worker vorbei.
+// Für die eigene Seite gilt: ZUERST das Netz (neue Versionen kommen sofort an),
+// nur ohne Internet wird der Cache als Rückfall genutzt.
 self.addEventListener('fetch', e => {
-  e.respondWith(
-    fetch(e.request)
-      .then(networkResponse => {
-        // Erfolgreiche Netzwerk-Antwort: Cache aktualisieren und zurückgeben
-        const responseClone = networkResponse.clone();
-        caches.open(CACHE).then(cache => cache.put(e.request, responseClone));
-        return networkResponse;
-      })
-      .catch(() => {
-        // Kein Internet: aus dem Cache bedienen (Offline-Fallback)
-        return caches.match(e.request);
-      })
-  );
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  if (req.headers.has('range')) return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  e.respondWith(handle(req));
 });
+
+async function handle(req){
+  const isNav = req.mode === 'navigate';
+  try{
+    const res = await fetch(req);
+    // Nur echte, vollständige Antworten zwischenspeichern (keine Fehlerseiten, keine Teilantworten)
+    if(res && res.status === 200 && res.type === 'basic'){
+      const copy = res.clone();
+      // Seitenaufrufe immer unter index.html ablegen (auch mit ?code=... vom Login-Rücksprung)
+      caches.open(CACHE).then(cache => cache.put(isNav ? INDEX_URL : req, copy)).catch(()=>{});
+    }
+    return res;
+  }catch(err){
+    const cache = await caches.open(CACHE);
+    let hit = await cache.match(req, { ignoreSearch: true });
+    if(!hit && isNav) hit = await cache.match(INDEX_URL);
+    return hit || Response.error();
+  }
+}
